@@ -21,7 +21,7 @@ struct atomq {
 	bool dirty;
 	uint8_t headOffset;
 	uint8_t tailOffset;
-	atomq_cb *cbDeqeueReady;
+	atomq_cb *cbDidEnqueue;
 	void *cbData;
 
 	unsigned char storage[];
@@ -32,5 +32,7 @@ volatile struct atomq * atomq_alloc(uint8_t numSlots, uint8_t slotSize);
 bool atomq_enqueue(volatile struct atomq *queue, bool shouldBlock, void *src);
 bool atomq_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest);
 uint8_t atomq_slots_ready(volatile struct atomq *queue);
+uint8_t atomq_slots_used(volatile struct atomq *queue);
+bool atomq_peek(volatile struct atomq *queue, bool shouldBlock, void *dest);
 
 #endif /* ATOMQ_H_ */

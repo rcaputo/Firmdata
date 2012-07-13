@@ -13,17 +13,15 @@
 #include "config.h"
 #include "atomq.h"
 #include "fault.h"
+#include "message.h"
 
 volatile struct atomq *inputBuf;
 volatile struct atomq *outputBuf;
 
 #define UART_UDRE_ENABLE (UCSR0B |= _BV(UDRIE0))
 #define UART_UDRE_DISABLE (UCSR0B &= ~_BV(UDRIE0))
-
-void uart_putchar(char c) {
-    loop_until_bit_is_set(UCSR0A, UDRE0); /* Wait until data register empty. */
-    UDR0 = c;
-}
+#define UART_RXC_ENABLE (UCSR0B |= _BV(RXCIE0))
+#define UART_RXC_DISABLE (UCSR0B &= !_BV(RXCIE0))
 
 static bool uart_buffer_nb(volatile struct atomq *queue, void *src, uint8_t len) {
 	static uint8_t sent;
@@ -59,13 +57,13 @@ bool uart_buffer_output(bool shouldBlock, void *src, uint8_t len) {
 	return true;
 }
 
-void uart_outputBuf_dequeueReady(volatile struct atomq *queue) {
+
+void uart_outputBuf_didEnqueue(volatile struct atomq *queue) {
 	UART_UDRE_ENABLE;
 }
 
-static int uart_putchar_stdio(char c, FILE *fh) {
-	uart_buffer_output(true, &c, sizeof(char));
-	return 0;
+void uart_inputBuf_didEnqueue(volatile struct atomq *queue) {
+
 }
 
 void uart_init(void) {
@@ -73,10 +71,10 @@ void uart_init(void) {
 //defines UBRRL_VALUE, UBRRH_VALUE and USE_2X
 #include <util/setbaud.h>
 
-	inputBuf = atomq_alloc(UART_INPUT_BUF_LEN, sizeof(char));
 	outputBuf = atomq_alloc(UART_OUTPUT_BUF_LEN, sizeof(char));
 
-	outputBuf->cbDeqeueReady = uart_outputBuf_dequeueReady;
+	outputBuf->cbDidEnqueue = uart_outputBuf_didEnqueue;
+	inputBuf->cbDidEnqueue = uart_inputBuf_didEnqueue;
 
 	UBRR0H = UBRRH_VALUE;
     UBRR0L = UBRRL_VALUE;
@@ -90,7 +88,9 @@ void uart_init(void) {
     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); /* 8-bit data */
     UCSR0B = _BV(RXEN0) | _BV(TXEN0);   /* Enable RX and TX */
 
-    fdevopen(uart_putchar_stdio, NULL);
+    message_set_buffer(outputBuf);
+
+    UART_RXC_ENABLE;
 
 #undef BAUD
 }
@@ -110,3 +110,16 @@ ISR(USART_UDRE_vect) {
 	UDR0 = byte;
 }
 
+ISR(USART_RX_vect) {
+	static unsigned char byte;
+
+	if (! UCSR0A & _BV(RXC0)) {
+		fault_fatal(FAULT_UART_RX_ISR_WOULD_BLOCK_ON_RECEIVE);
+	}
+
+	byte = UDR0;
+
+	if (! atomq_enqueue(inputBuf, false, &byte)) {
+		fault_fatal(FAULT_UART_RX_ISR_WOULD_BLOCK_ON_BUFFER);
+	}
+}

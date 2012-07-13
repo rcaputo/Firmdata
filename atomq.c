@@ -30,9 +30,6 @@ volatile struct atomq * atomq_alloc(uint8_t numSlots, uint8_t slotSize) {
 }
 
 bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
-	static bool isFirst;
-
-	isFirst = 0;
 
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (queue->headOffset == queue->tailOffset && queue->dirty) {
@@ -45,18 +42,10 @@ bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
 		queue->headOffset++;
 		queue->headOffset %= queue->numSlots;
 
-		if (! queue->dirty) {
-			isFirst = 1;
-		}
-
 		queue->dirty = true;
 	}
 
-	if (isFirst) {
-		if (queue->cbDeqeueReady != NULL) {
-			(*queue->cbDeqeueReady)(queue);
-		}
-	}
+	queue->cbDidEnqueue(queue);
 
 	return true;
 }
@@ -109,6 +98,33 @@ bool atomq_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest) {
 	return false;
 }
 
+static bool atomq_peek_nb(volatile struct atomq *queue, void *dest) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		if (queue->tailOffset == queue->headOffset && ! queue->dirty) {
+			//nothing exists in the queue
+			return false;
+		}
+
+		memcpy(dest, (void *)&(queue->storage[queue->tailOffset * queue->slotSize]), queue->slotSize);
+	}
+
+	return true;
+}
+
+bool atomq_peek(volatile struct atomq *queue, bool shouldBlock, void *dest) {
+	static bool retval;
+
+	while(1) {
+		retval = atomq_peek_nb(queue, dest);
+
+		if (retval || ! shouldBlock) {
+			return retval;
+		}
+	}
+
+	return false;
+}
+
 uint8_t atomq_slots_ready(volatile struct atomq *queue) {
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (queue->tailOffset == queue->headOffset) {
@@ -123,6 +139,10 @@ uint8_t atomq_slots_ready(volatile struct atomq *queue) {
 	}
 
 	return queue->numSlots - (queue->headOffset - queue->tailOffset);
+}
+
+uint8_t atomq_slots_used(volatile struct atomq *queue) {
+	return queue->numSlots - atomq_slots_ready(queue);
 }
 
 void atomq_init(void) {

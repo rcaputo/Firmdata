@@ -46,3 +46,7 @@ void fault_fatal(uint8_t faultNum) {
 void fault_init(void) {
 
 }
+
+ISR(BADISR_vect) {
+	fault_fatal(FAULT_UNHANDLED_ISR);
+}
