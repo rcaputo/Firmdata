@@ -8,20 +8,63 @@
 #include <avr/io.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <util/atomic.h>
 
 #include "config.h"
 #include "atomq.h"
+#include "fault.h"
 
-struct atomq *inputBuf;
-struct atomq *outputBuf;
+volatile struct atomq *inputBuf;
+volatile struct atomq *outputBuf;
+
+#define UART_UDRE_ENABLE (UCSR0B |= _BV(UDRIE0))
+#define UART_UDRE_DISABLE (UCSR0B &= ~_BV(UDRIE0))
 
 void uart_putchar(char c) {
     loop_until_bit_is_set(UCSR0A, UDRE0); /* Wait until data register empty. */
     UDR0 = c;
 }
 
+static bool uart_buffer_nb(volatile struct atomq *queue, void *src, uint8_t len) {
+	static uint8_t sent;
+
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		if (atomq_slots_ready(queue) < len) {
+			return false;
+		}
+
+		for(sent = 0; sent < len; sent++) {
+			if (! atomq_enqueue(queue, false, src)) {
+				fault_fatal(FAULT_UART_BUFFER_NB_WOULD_BLOCK);
+			}
+
+			src++;
+		}
+	}
+
+	return true;
+}
+
+bool uart_buffer_output(bool shouldBlock, void *src, uint8_t len) {
+	static bool retval;
+
+	while(1) {
+		retval = uart_buffer_nb(outputBuf, src, len);
+
+		if (retval || ! shouldBlock) {
+			return retval;
+		}
+	}
+
+	return true;
+}
+
+void uart_outputBuf_dequeueReady(volatile struct atomq *queue) {
+	UART_UDRE_ENABLE;
+}
+
 static int uart_putchar_stdio(char c, FILE *fh) {
-	uart_putchar(c);
+	uart_buffer_output(true, &c, sizeof(char));
 	return 0;
 }
 
@@ -29,6 +72,11 @@ void uart_init(void) {
 #define BAUD UART_BPS
 //defines UBRRL_VALUE, UBRRH_VALUE and USE_2X
 #include <util/setbaud.h>
+
+	inputBuf = atomq_alloc(UART_INPUT_BUF_LEN, sizeof(char));
+	outputBuf = atomq_alloc(UART_OUTPUT_BUF_LEN, sizeof(char));
+
+	outputBuf->cbDeqeueReady = uart_outputBuf_dequeueReady;
 
 	UBRR0H = UBRRH_VALUE;
     UBRR0L = UBRRL_VALUE;
@@ -43,5 +91,22 @@ void uart_init(void) {
     UCSR0B = _BV(RXEN0) | _BV(TXEN0);   /* Enable RX and TX */
 
     fdevopen(uart_putchar_stdio, NULL);
+
+#undef BAUD
+}
+
+ISR(USART_UDRE_vect) {
+	static unsigned char byte;
+
+	if (! atomq_dequeue(outputBuf, false, &byte)) {
+		UART_UDRE_DISABLE;
+		return;
+	}
+
+	if (! UCSR0A & _BV(UDRE0)) {
+		fault_fatal(FAULT_UART_UDRE_INTERRUPT_WOULD_BLOCK_ON_SEND);
+	}
+
+	UDR0 = byte;
 }
 

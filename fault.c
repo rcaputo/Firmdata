@@ -38,6 +38,8 @@ void fault_fatal(uint8_t faultNum) {
 			led_off();
 			_delay_ms(300);
 		}
+
+		_delay_ms(1000);
 	}
 }
 

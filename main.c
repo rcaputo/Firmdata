@@ -7,6 +7,7 @@
 
 #include <util/delay.h>
 #include <stdio.h>
+#include <avr/interrupt.h>
 
 #include "fault.h"
 #include "led.h"
@@ -23,13 +24,14 @@ void main_init(void) {
 }
 
 int main(void) {
-	uint16_t number = 10000;
-	uint16_t out;
-	volatile struct atomq *queue = atomq_alloc(10, sizeof(number));
 	main_init();
 
-	atomq_enqueue(queue, true, &number);
-	atomq_dequeue(queue, true, &out);
+	sei();
 
-	printf("Got %i\n", out);
+	printf("What's up, Doc? ");
+
+	while(1) {
+		volatile static int i = 0;
+		i++;
+	}
 }

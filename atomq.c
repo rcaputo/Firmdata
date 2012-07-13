@@ -54,7 +54,7 @@ bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
 
 	if (isFirst) {
 		if (queue->cbDeqeueReady != NULL) {
-			(*queue->cbDeqeueReady)(0);
+			(*queue->cbDeqeueReady)(queue);
 		}
 	}
 
@@ -81,8 +81,6 @@ bool atomq_dequeue_nb(volatile struct atomq *queue, void *dest) {
 			//nothing exists in the queue
 			return false;
 		}
-
-		printf("Blah %i", queue->slotSize);
 
 		memcpy(dest, (void *)&(queue->storage[queue->tailOffset]), queue->slotSize);
 
@@ -111,7 +109,7 @@ bool atomq_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest) {
 	return false;
 }
 
-uint8_t atomq_slots_available(volatile struct atomq *queue) {
+uint8_t atomq_slots_ready(volatile struct atomq *queue) {
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (queue->tailOffset == queue->headOffset) {
 			if (queue->dirty) {
