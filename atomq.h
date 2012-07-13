@@ -29,7 +29,8 @@ struct atomq {
 
 void atomq_init(void);
 volatile struct atomq * atomq_alloc(uint8_t numSlots, uint8_t slotSize);
-bool atomqueue_enqueue(volatile struct atomq *queue, bool shouldBlock, void *src);
-bool atomqueue_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest);
+bool atomq_enqueue(volatile struct atomq *queue, bool shouldBlock, void *src);
+bool atomq_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest);
+uint8_t atomq_slots_available(volatile struct atomq *queue);
 
 #endif /* ATOMQ_H_ */

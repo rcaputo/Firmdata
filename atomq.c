@@ -8,6 +8,7 @@
 #include <util/atomic.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "atomq.h"
 #include "fault.h"
@@ -39,19 +40,22 @@ bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
 			return false;
 		}
 
-		memcpy(src, (void *)&queue->storage[queue->headOffset], queue->slotSize);
+		memcpy((void *)&(queue->storage[queue->headOffset]), src, queue->slotSize);
 
 		queue->headOffset++;
 		queue->headOffset %= queue->numSlots;
 
 		if (! queue->dirty) {
-			queue->dirty = true;
 			isFirst = 1;
 		}
+
+		queue->dirty = true;
 	}
 
 	if (isFirst) {
-		(*queue->cbDeqeueReady)(0);
+		if (queue->cbDeqeueReady != NULL) {
+			(*queue->cbDeqeueReady)(0);
+		}
 	}
 
 	return true;
@@ -72,17 +76,15 @@ bool atomq_enqueue(volatile struct atomq *queue, bool shouldBlock, void *src) {
 }
 
 bool atomq_dequeue_nb(volatile struct atomq *queue, void *dest) {
-	static bool isLast;
-
-	isLast = 0;
-
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (queue->tailOffset == queue->headOffset && ! queue->dirty) {
 			//nothing exists in the queue
 			return false;
 		}
 
-		memcpy((void *)&queue->storage[queue->tailOffset], dest, queue->slotSize);
+		printf("Blah %i", queue->slotSize);
+
+		memcpy(dest, (void *)&(queue->storage[queue->tailOffset]), queue->slotSize);
 
 		queue->tailOffset++;
 		queue->tailOffset %= queue->numSlots;
@@ -90,7 +92,6 @@ bool atomq_dequeue_nb(volatile struct atomq *queue, void *dest) {
 		if (queue->tailOffset == queue->headOffset) {
 			queue->dirty = false;
 		}
-
 	}
 
 	return true;
@@ -108,6 +109,22 @@ bool atomq_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest) {
 	}
 
 	return false;
+}
+
+uint8_t atomq_slots_available(volatile struct atomq *queue) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		if (queue->tailOffset == queue->headOffset) {
+			if (queue->dirty) {
+				return 0;
+			} else {
+				return queue->numSlots;
+			}
+		} else if (queue->tailOffset > queue->headOffset) {
+			return queue->tailOffset - queue->headOffset;
+		}
+	}
+
+	return queue->numSlots - (queue->headOffset - queue->tailOffset);
 }
 
 void atomq_init(void) {

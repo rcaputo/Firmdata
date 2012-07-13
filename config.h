@@ -11,6 +11,8 @@
 #define LED_PORT PORTB
 #define LED_PIN 5
 
-
+#define UART_BPS 57600
+#define UART_INPUT_BUF_LEN 16
+#define UART_OUTPUT_BUF_LEN 255
 
 #endif /* CONFIG_H_ */

@@ -1,4 +1,4 @@
 Firmdata
 ========
 
-Send and receive data using AVR micro-controller ports 
+Send and receive data using AVR micro-controller IO ports 
