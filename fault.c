@@ -39,5 +39,8 @@ void fault_fatal(uint8_t faultNum) {
 			_delay_ms(300);
 		}
 	}
+}
+
+void fault_init(void) {
 
 }
