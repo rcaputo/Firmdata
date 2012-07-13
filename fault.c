@@ -30,7 +30,7 @@ void fault_fatal(uint8_t faultNum) {
 			_delay_ms(50);
 		}
 
-		_delay_ms(500);
+		_delay_ms(1000);
 
 		for(i = 0; i < faultNum; i++) {
 			led_on();

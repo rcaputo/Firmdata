@@ -40,7 +40,7 @@ bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
 			return false;
 		}
 
-		memcpy((void *)&(queue->storage[queue->headOffset]), src, queue->slotSize);
+		memcpy((void *)&(queue->storage[queue->headOffset * queue->slotSize]), src, queue->slotSize);
 
 		queue->headOffset++;
 		queue->headOffset %= queue->numSlots;
@@ -82,7 +82,7 @@ bool atomq_dequeue_nb(volatile struct atomq *queue, void *dest) {
 			return false;
 		}
 
-		memcpy(dest, (void *)&(queue->storage[queue->tailOffset]), queue->slotSize);
+		memcpy(dest, (void *)&(queue->storage[queue->tailOffset * queue->slotSize]), queue->slotSize);
 
 		queue->tailOffset++;
 		queue->tailOffset %= queue->numSlots;

@@ -23,15 +23,12 @@ void main_init(void) {
 	uart_init();
 }
 
+void main_run(void) {
+	sei();
+}
+
 int main(void) {
 	main_init();
-
-	sei();
-
-	printf("What's up, Doc? ");
-
-	while(1) {
-		volatile static int i = 0;
-		i++;
-	}
+	main_run();
+	fault_fatal(FAULT_MAINLOOP_DID_EXIT);
 }
