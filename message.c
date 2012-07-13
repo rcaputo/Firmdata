@@ -8,6 +8,7 @@
 #include <util/atomic.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "message.h"
 #include "fault.h"
@@ -70,14 +71,28 @@ bool message_send(uint8_t port, bool shouldBlock, void *src, uint8_t len) {
 	return true;
 }
 
-static int message_putchar_stdio(char c, FILE *fh) {
-	message_send(0, true, &c, 1);
+bool message_send_stdio(uint8_t fd, bool shouldBlock, char c) {
+	static char buf[2];
+
+	buf[0] = fd;
+	buf[1] = c;
+
+	return message_send(0, shouldBlock, buf, 2);
+}
+
+static int message_putchar_stdout(char c, FILE *fh) {
+	message_send_stdio(1, true, c);
 	return 0;
 }
 
+static int message_putchar_stderr(char c, FILE *fh) {
+	message_send_stdio(2, true, c);
+	return 0;
+}
 
 void message_init(void) {
-    fdevopen(message_putchar_stdio, NULL);
+    stdout = fdevopen(message_putchar_stdout, NULL);
+    stderr = fdevopen(message_putchar_stderr, NULL);
 }
 
 

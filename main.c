@@ -31,8 +31,6 @@ void main_run(void) {
 	while(1) {
 		volatile static int foo = 1;
 		foo++;
-
-		printf("Hello there ");
 	}
 }
 

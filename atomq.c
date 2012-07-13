@@ -71,7 +71,9 @@ bool atomq_dequeue_nb(volatile struct atomq *queue, void *dest) {
 			return false;
 		}
 
-		memcpy(dest, (void *)&(queue->storage[queue->tailOffset * queue->slotSize]), queue->slotSize);
+		if (dest != NULL) {
+			memcpy(dest, (void *)&(queue->storage[queue->tailOffset * queue->slotSize]), queue->slotSize);
+		}
 
 		queue->tailOffset++;
 		queue->tailOffset %= queue->numSlots;

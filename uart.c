@@ -14,6 +14,7 @@
 #include "atomq.h"
 #include "fault.h"
 #include "message.h"
+#include "command.h"
 
 volatile struct atomq *inputBuf;
 volatile struct atomq *outputBuf;
@@ -72,9 +73,9 @@ void uart_init(void) {
 #include <util/setbaud.h>
 
 	outputBuf = atomq_alloc(UART_OUTPUT_BUF_LEN, sizeof(char));
+	inputBuf = atomq_alloc(UART_INPUT_BUF_LEN, sizeof(char));
 
 	outputBuf->cbDidEnqueue = uart_outputBuf_didEnqueue;
-	inputBuf->cbDidEnqueue = uart_inputBuf_didEnqueue;
 
 	UBRR0H = UBRRH_VALUE;
     UBRR0L = UBRRL_VALUE;
@@ -89,6 +90,7 @@ void uart_init(void) {
     UCSR0B = _BV(RXEN0) | _BV(TXEN0);   /* Enable RX and TX */
 
     message_set_buffer(outputBuf);
+    command_set_buffer(inputBuf);
 
     UART_RXC_ENABLE;
 
