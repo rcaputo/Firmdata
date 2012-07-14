@@ -127,24 +127,24 @@ bool atomq_peek(volatile struct atomq *queue, bool shouldBlock, void *dest) {
 	return false;
 }
 
-uint8_t atomq_slots_ready(volatile struct atomq *queue) {
+uint8_t atomq_slots_consumed(volatile struct atomq *queue) {
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (queue->tailOffset == queue->headOffset) {
 			if (queue->dirty) {
-				return 0;
-			} else {
 				return queue->numSlots;
+			} else {
+				return 0;
 			}
 		} else if (queue->tailOffset > queue->headOffset) {
-			return queue->tailOffset - queue->headOffset;
+			return queue->numSlots - (queue->tailOffset - queue->headOffset);
 		}
 	}
 
-	return queue->numSlots - (queue->headOffset - queue->tailOffset);
+	return queue->headOffset - queue->tailOffset;
 }
 
-uint8_t atomq_slots_used(volatile struct atomq *queue) {
-	return queue->numSlots - atomq_slots_ready(queue);
+uint8_t atomq_slots_available(volatile struct atomq *queue) {
+	return queue->numSlots - atomq_slots_consumed(queue);
 }
 
 void atomq_init(void) {

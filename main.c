@@ -15,6 +15,11 @@
 #include "atomq.h"
 #include "uart.h"
 #include "message.h"
+#include "clock.h"
+#include "command.h"
+#include "timer.h"
+
+uint8_t timerId;
 
 void main_init(void) {
 	ioport_init();
@@ -23,14 +28,18 @@ void main_init(void) {
 	atomq_init();
 	uart_init();
 	message_init();
+	command_init();
+	clock_init();
+	timer_init();
 }
 
 void main_run(void) {
 	sei();
 
+	clock_run();
+
 	while(1) {
-		volatile static int foo = 1;
-		foo++;
+		led_off();
 	}
 }
 

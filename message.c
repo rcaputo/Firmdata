@@ -37,7 +37,7 @@ static bool message_send_nb(uint8_t port, void *src, uint8_t len) {
 			fault_fatal(FAULT_MESSAGE_BUFFER_WAS_NULL);
 		}
 
-		if (atomq_slots_ready(messageBuf) < len + MESSAGE_HEADER_LEN) {
+		if (atomq_slots_available(messageBuf) < len + MESSAGE_HEADER_LEN) {
 			return false;
 		}
 

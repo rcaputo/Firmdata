@@ -8,11 +8,15 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define CLOCK_HZ 10000
+
 #define LED_PORT PORTB
 #define LED_PIN 5
 
 #define UART_BPS 57600
-#define UART_INPUT_BUF_LEN 16
+#define UART_INPUT_BUF_LEN 64
 #define UART_OUTPUT_BUF_LEN 255
+
+#define TIMER_NUM_SLOTS 20
 
 #endif /* CONFIG_H_ */

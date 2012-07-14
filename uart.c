@@ -15,6 +15,7 @@
 #include "fault.h"
 #include "message.h"
 #include "command.h"
+#include "led.h"
 
 volatile struct atomq *inputBuf;
 volatile struct atomq *outputBuf;
@@ -28,7 +29,7 @@ static bool uart_buffer_nb(volatile struct atomq *queue, void *src, uint8_t len)
 	static uint8_t sent;
 
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		if (atomq_slots_ready(queue) < len) {
+		if (atomq_slots_available(queue) < len) {
 			return false;
 		}
 
@@ -68,6 +69,7 @@ void uart_inputBuf_didEnqueue(volatile struct atomq *queue) {
 }
 
 void uart_init(void) {
+
 #define BAUD UART_BPS
 //defines UBRRL_VALUE, UBRRH_VALUE and USE_2X
 #include <util/setbaud.h>
@@ -100,6 +102,8 @@ void uart_init(void) {
 ISR(USART_UDRE_vect) {
 	static unsigned char byte;
 
+	led_on();
+
 	if (! atomq_dequeue(outputBuf, false, &byte)) {
 		UART_UDRE_DISABLE;
 		return;
@@ -114,6 +118,8 @@ ISR(USART_UDRE_vect) {
 
 ISR(USART_RX_vect) {
 	static unsigned char byte;
+
+	led_on();
 
 	if (! UCSR0A & _BV(RXC0)) {
 		fault_fatal(FAULT_UART_RX_ISR_WOULD_BLOCK_ON_RECEIVE);

@@ -12,8 +12,11 @@
 
 void command_init(void);
 void command_set_buffer(volatile struct atomq *);
+void command_init(void);
 
-#define COMMAND_NAME_NOP 0
-#define COMMAND_NAME_START 1
+#define COMMAND_NAME_NOP 1
+#define COMMAND_NAME_ECHO 2
+#define COMMAND_NAME_IDENTIFY 3
+#define COMMAND_NAME_TEST 4
 
 #endif /* COMMAND_H_ */
