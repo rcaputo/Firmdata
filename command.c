@@ -18,6 +18,8 @@
 
 #define COMMAND_RESPONSE_MAX_LEN 6
 
+volatile struct atomq *inputBuf;
+
 static bool command_send_response(uint8_t command, void *ret, uint8_t len) {
 	static char buf[COMMAND_RESPONSE_MAX_LEN + 1];
 
@@ -113,7 +115,13 @@ void command_got_byte(volatile struct atomq *p) {
 }
 
 void command_set_buffer(volatile struct atomq *p) {
-	p->cbDidEnqueue = command_got_byte;
+	inputBuf = p;
+}
+
+void command_update(void) {
+	if (atomq_slots_consumed(inputBuf) > 0) {
+		command_got_byte(inputBuf);
+	}
 }
 
 void command_init(void) {

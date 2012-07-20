@@ -8,6 +8,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define FIRMDATA_VERSION "0.0.1"
+
 #define CLOCK_HZ 10000
 
 #define LED_PORT PORTB

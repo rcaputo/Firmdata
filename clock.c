@@ -61,8 +61,8 @@ ISR(TIMER0_OVF_vect) {
 
 	led_on();
 
-	if (! message_send(31, false, &buf, 1)) {
-		fault_fatal(FAULT_CLOCK_OVERFLOW_WOULD_BLOCK);
-	}
+//	if (! message_send(31, false, &buf, 1)) {
+//		fault_fatal(FAULT_CLOCK_OVERFLOW_WOULD_BLOCK);
+//	}
 }
 

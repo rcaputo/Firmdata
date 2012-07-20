@@ -29,8 +29,8 @@ static bool message_send_nb(uint8_t port, void *src, uint8_t len) {
 		fault_fatal(FAULT_MESSAGE_MAX_LENGTH_EXCEEDED);
 	}
 
-	header = port << 5;
-	header += len;
+	header = port << 3;
+	header |= len;
 
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (messageBuf == NULL) {

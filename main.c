@@ -8,7 +8,9 @@
 #include <util/delay.h>
 #include <stdio.h>
 #include <avr/interrupt.h>
+#include <avr/sleep.h>
 
+#include "config.h"
 #include "fault.h"
 #include "led.h"
 #include "ioport.h"
@@ -18,8 +20,7 @@
 #include "clock.h"
 #include "command.h"
 #include "timer.h"
-
-uint8_t timerId;
+#include "session.h"
 
 void main_init(void) {
 	ioport_init();
@@ -31,15 +32,22 @@ void main_init(void) {
 	command_init();
 	clock_init();
 	timer_init();
+	session_init();
 }
 
 void main_run(void) {
-	sei();
+	led_on();
 
+	sei();
 	clock_run();
 
 	while(1) {
+		session_update();
+
+		sleep_enable();
 		led_off();
+		sleep_cpu();
+		sleep_disable();
 	}
 }
 

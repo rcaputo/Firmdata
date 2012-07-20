@@ -45,7 +45,9 @@ bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
 		queue->dirty = true;
 	}
 
-	queue->cbDidEnqueue(queue);
+	if (queue->cbDidEnqueue != NULL) {
+		queue->cbDidEnqueue(queue);
+	}
 
 	return true;
 }
