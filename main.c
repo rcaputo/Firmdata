@@ -35,6 +35,18 @@ void main_init(void) {
 	session_init();
 }
 
+void main_update_subsystems(void) {
+	command_update();
+	session_update();
+}
+
+void main_sleep(void) {
+	sleep_enable();
+	led_off();
+	sleep_cpu();
+	sleep_disable();
+}
+
 void main_run(void) {
 	led_on();
 
@@ -42,12 +54,8 @@ void main_run(void) {
 	clock_run();
 
 	while(1) {
-		session_update();
-
-		sleep_enable();
-		led_off();
-		sleep_cpu();
-		sleep_disable();
+		main_update_subsystems();
+		main_sleep();
 	}
 }
 

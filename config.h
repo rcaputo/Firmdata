@@ -21,4 +21,6 @@
 
 #define TIMER_NUM_SLOTS 20
 
+#define SESSION_EVENT_QUEUE_SIZE 10
+
 #endif /* CONFIG_H_ */

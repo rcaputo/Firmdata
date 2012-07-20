@@ -14,10 +14,13 @@ void command_init(void);
 void command_set_buffer(volatile struct atomq *);
 void command_init(void);
 void command_update();
+bool command_send_response(uint8_t command, void *ret, uint8_t len);
 
 #define COMMAND_NAME_NOP 1
 #define COMMAND_NAME_ECHO 2
 #define COMMAND_NAME_IDENTIFY 3
 #define COMMAND_NAME_TEST 4
+#define COMMAND_NAME_SESSION_START 10
+#define COMMAND_NAME_SESSION_END 11
 
 #endif /* COMMAND_H_ */

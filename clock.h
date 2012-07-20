@@ -9,11 +9,14 @@
 #define CLOCK_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
+void clock_set_sendTimerOverflow(bool shouldSend);
 void clock_pause(void);
 void clock_stop(void);
 void clock_run(void);
 void clock_init(void);
 uint8_t clock_get(void);
+void clock_reset(void);
 
 #endif /* CLOCK_H_ */

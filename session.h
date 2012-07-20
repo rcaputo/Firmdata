@@ -12,12 +12,11 @@
 #include <stdbool.h>
 
 enum session_event {
-	session_event_clockOverflow
+	session_event_startSession, session_event_endSession,
 };
 
 void session_init(void);
 void session_update(void);
-
-
+void session_event_deliver(enum session_event event);
 
 #endif /* SESSION_H_ */

@@ -21,13 +21,23 @@
 #error Invalid clock frequency specified
 #endif
 
+bool sendTimerOverflow;
+
+void clock_set_sendTimerOverflow(bool shouldSend) {
+	sendTimerOverflow = shouldSend;
+}
+
 void clock_pause(void) {
 	TCCR0B &= ~( 1 << CS02 | 0 << CS01 | 1 << CS00 );
 }
 
+void clock_reset(void) {
+	TCNT0 = 0;
+}
+
 void clock_stop(void) {
 	clock_pause();
-	TCNT0 = 0;
+	clock_reset();
 }
 
 void clock_run(void) {
@@ -42,6 +52,8 @@ uint8_t clock_get(void) {
 void clock_init(void) {
 	//clear on match
 //	TCCR0A |= 1 << WGM01 | 0 << WGM00;
+
+	sendTimerOverflow = false;
 
 	OCR0A = COUNTER_COMPARE;
 
@@ -61,8 +73,11 @@ ISR(TIMER0_OVF_vect) {
 
 	led_on();
 
-//	if (! message_send(31, false, &buf, 1)) {
-//		fault_fatal(FAULT_CLOCK_OVERFLOW_WOULD_BLOCK);
-//	}
+	if (sendTimerOverflow) {
+		if (! message_send(31, false, &buf, 1)) {
+			fault_fatal(FAULT_CLOCK_OVERFLOW_WOULD_BLOCK);
+		}
+	}
+
 }
 
