@@ -109,7 +109,6 @@ sub new {
 	my $self = bless({}, $class);
 	
 	$self->{driver} = $messageDriver; 
-	$self->{clockAccumulator} = 0; 
 	$self->{session} = undef; 
 	$self->{sentCommand} = undef; 
 	$self->{gotCommandResponse} = 0; 
@@ -150,7 +149,7 @@ sub sendCommand {
 	my $retArgs; 
 	
 	if (defined($self->{sentCommand})) {
-		die "attempt to send a command while waiting for the response from a command"; 
+		die "attempt to send command '$commandName' while waiting for the response from command ", $self->get_command_name($self->{sentCommand}); 
 	}
 	
 	$self->{sentCommand} = $commandNumber; 
@@ -162,7 +161,7 @@ sub sendCommand {
 	}
 	
 	$self->driver->sendMessage(31, $message);
-	
+		
 	while(! $self->{gotCommandResponse}) {
 		$self->poll; 
 	}
@@ -180,6 +179,10 @@ sub driver {
 	return $_[0]->{driver}; 
 }
 
+sub session {
+	return $_[0]->{session}; 
+}
+
 sub handle_stdio {
 	my ($self, $fdno, $byte) = @_; 	
 }
@@ -195,9 +198,7 @@ sub handle_system_message_commandResponse {
 	} elsif ($lastSentCommand != $commandNumber) {
 		die "the last sent command was $lastSentCommand but the response is to command $commandNumber";
 	}
-	
-	print "command response $commandNumber ", length(substr($content, 1)), "\n";
-	
+		
 	if (defined($content) && length($content) > 1) {
 		$retArgs = substr($content, 1); 
 	}
@@ -215,18 +216,14 @@ sub handle_system_message_beacon {
 	}
 	
 	$self->sendCommand('SESSION_START'); 
-
-	die "ready to have a session object made";
+	
+	$self->{session} = Device::Firmdata::Session->new($self);
 }
 
 sub handle_system_message_clockOverflow {
 	my ($self) = @_;
-	$self->{clockAccumulator}++; 
-	
-	if ($self->{clockAccumulator} >= 10000) {
-		print "Stopping session\n";
-		$self->sendCommand('SESSION_END'); 
-	}
+
+	$self->session->_update_clock_accumulator; 
 }
 
 sub handle_system_message {
@@ -263,6 +260,40 @@ sub get_command_number {
 	}
 	
 	return $COMMAND_NUMBERS{$name}; 
+}
+
+package Device::Firmdata::Session;
+
+use strict;
+use warnings; 
+
+use Scalar::Util qw(weaken); 
+
+sub new {
+	my ($class, $firmdata) = @_; 
+	my $self = bless({}, $class);
+	
+	$self->{firmdata} = $firmdata; 
+	weaken($self->{firmdata}); 
+	
+	$self->{clockAccumulator} = 0; 
+	
+	return $self; 
+}
+
+sub _update_clock_accumulator {
+	my ($self) = @_;
+	
+	$self->{clockAccumulator}++; 
+	
+	if ($self->{clockAccumulator} % 1000 == 0) {
+		print "zonk!\n"; 
+	}
+	
+	if ($self->{clockAccumulator} == 3000) {
+		$self->{firmdata}->sendCommand("SESSION_END"); 
+		die "session completed"; 
+	}
 }
 
 package main; 
