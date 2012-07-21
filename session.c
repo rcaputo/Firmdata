@@ -16,10 +16,12 @@
 #include "message.h"
 #include "timer.h"
 #include "clock.h"
+#include "processor.h"
 
-bool sessionStarted;
+bool sessionActive;
 volatile struct atomq *eventQueue;
 uint8_t broadcastTimer;
+uint8_t testTimer;
 
 static void session_start_broadcast(void);
 static void session_stop_broadcast(void);
@@ -30,26 +32,69 @@ void session_event_deliver(enum session_event event) {
 	}
 }
 
-void session_handle_event_startSession(void) {
-	session_stop_broadcast();
-	clock_reset();
-
-	command_send_response(COMMAND_NAME_SESSION_START, NULL, 0);
-	clock_set_sendTimerOverflow(true);
+void session_test_timer_cb(volatile struct timer *p) {
+	session_event_deliver(session_event_test);
 }
 
-void session_handle_event_endSession(void) {
-	clock_set_sendTimerOverflow(false);
+static void session_handle_event_startSession(void) {
+	session_stop_broadcast();
+
+	testTimer = timer_create(5, 0, true, session_test_timer_cb, NULL);
+
+	clock_reset();
+	processor_counter_reset();
+
+	sessionActive = 1;
+	command_send_response(COMMAND_NAME_SESSION_START, NULL, 0);
+
+	timer_start(testTimer);
+}
+
+static void session_handle_event_endSession(void) {
 	clock_reset();
 
+	sessionActive = 0;
 	command_send_response(COMMAND_NAME_SESSION_END, NULL, 0);
 	session_start_broadcast();
+}
+
+static void session_handle_event_clockOverflow(void) {
+	static char buf = 0;
+
+	if (! sessionActive) {
+		return;
+	}
+
+	if (! message_send(31, false, &buf, 1)) {
+			fault_fatal(FAULT_SESSION_CLOCK_OVERFLOW_WOULD_BLOCK);
+	}
+}
+
+static void session_handle_event_processorOverflow(void) {
+	static char buf = 3;
+
+	if (! sessionActive) {
+		return;
+	}
+
+	if (! message_send(31, false, &buf, 1)) {
+		fault_fatal(FAULT_SESSION_PROCESSOR_OVERFLOW_WOULD_BLOCK);
+	}
+}
+
+static void session_handle_event_test(void) {
+	static char buf[2] = { 0, 255 };
+
+	message_send(1, true, &buf, 2);
 }
 
 static void session_handle_event(enum session_event currentEvent) {
 	switch(currentEvent) {
 		case session_event_startSession: return session_handle_event_startSession();
 		case session_event_endSession: return session_handle_event_endSession();
+		case session_event_clockOverflow: return session_handle_event_clockOverflow();
+		case session_event_processorCounterOverflow: return session_handle_event_processorOverflow();
+		case session_event_test: return session_handle_event_test();
 	};
 
 	fault_fatal(FAULT_SESSION_HANDLE_EVENT_EXITED_SWITCH);
@@ -87,7 +132,7 @@ void session_update(void) {
 }
 
 void session_init(void) {
-	sessionStarted = 0;
+	sessionActive = 0;
 
 	eventQueue = atomq_alloc(SESSION_EVENT_QUEUE_SIZE, sizeof(enum session_event));
 

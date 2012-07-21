@@ -11,7 +11,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void clock_set_sendTimerOverflow(bool shouldSend);
 void clock_pause(void);
 void clock_stop(void);
 void clock_run(void);

@@ -21,8 +21,10 @@
 #include "command.h"
 #include "timer.h"
 #include "session.h"
+#include "processor.h"
 
 void main_init(void) {
+	processor_init();
 	ioport_init();
 	led_init();
 	fault_init();
@@ -41,14 +43,14 @@ void main_update_subsystems(void) {
 }
 
 void main_sleep(void) {
+	processor_idle();
+
 	sleep_enable();
-	led_off();
 	sleep_cpu();
 	sleep_disable();
 }
 
 void main_run(void) {
-	led_on();
 
 	sei();
 	clock_run();

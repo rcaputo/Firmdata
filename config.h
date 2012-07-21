@@ -10,7 +10,7 @@
 
 #define FIRMDATA_VERSION "0.0.1"
 
-#define CLOCK_HZ 10000
+#define CLOCK_HZ 2500
 
 #define LED_PORT PORTB
 #define LED_PIN 5

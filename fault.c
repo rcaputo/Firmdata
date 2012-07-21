@@ -10,6 +10,7 @@
 
 #include "led.h"
 #include "fault.h"
+#include "processor.h"
 
 #define FAULT_BLINK_COUNT 5
 
@@ -48,5 +49,7 @@ void fault_init(void) {
 }
 
 ISR(BADISR_vect) {
+	processor_busy();
+
 	fault_fatal(FAULT_UNHANDLED_ISR);
 }

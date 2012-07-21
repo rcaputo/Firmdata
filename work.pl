@@ -89,6 +89,10 @@ package Device::Firmdata;
 use strict;
 use warnings; 
 
+use Time::HiRes qw(gettimeofday); 
+
+$SIG{ALRM} = sub { our($US); update_status($US) if defined $US; };
+
 BEGIN {
 	my %numbers; 
 	our %COMMAND_NAMES; 
@@ -98,7 +102,6 @@ BEGIN {
 		SESSION_START => 10, SESSION_END => 11,
 	);
 	
-
 	while(my ($name, $number) = each(%COMMAND_NUMBERS)) {
 		$COMMAND_NAMES{$number} = $name; 
 	}
@@ -107,18 +110,53 @@ BEGIN {
 sub new {
 	my ($class, $messageDriver) = @_; 
 	my $self = bless({}, $class);
+	our $US; 
 	
 	$self->{driver} = $messageDriver; 
 	$self->{session} = undef; 
 	$self->{sentCommand} = undef; 
 	$self->{gotCommandResponse} = 0; 
 	$self->{commandResponseArgs} = undef; 
+	$self->{processorCounter} = 0; 
+	$self->{clockCounter} = 0; 
+	
+	$self->{status} = {
+		lastProcessorCounter => 0,
+		lastClockCounter => 0,
+	};
+	
+	$US = $self; 
 	
 	return $self; 
 }
 
+sub update_status {
+	my ($self) = @_; 
+	
+	alarm(1); 
+	$self->print_status;
+}
+
+sub print_status {
+	my ($self) = @_; 
+	my $clockTicks = $self->{clockCounter} - $self->{status}->{lastClockCounter};
+	my $processorTicks = $self->{processorCounter} - $self->{status}->{lastProcessorCounter};
+	my $utilization;
+	
+	if ($clockTicks) {
+		$utilization = int($processorTicks / $clockTicks * 100);
+	}
+	
+	print "Clock ticks: ", $self->{clockCounter};
+	print "; Processor ticks: ", $self->{processorCounter};
+	print "; Utilization: $utilization%" if defined $utilization; 
+	print "\n";
+}
+
 sub run {
 	my ($self) = @_;
+	
+	$self->update_status();
 	
 	while(1) {
 		$self->poll; 
@@ -187,6 +225,10 @@ sub handle_stdio {
 	my ($self, $fdno, $byte) = @_; 	
 }
 
+sub handle_data {
+	
+}
+
 sub handle_system_message_commandResponse {
 	my ($self, $content) = @_; 
 	my $lastSentCommand = $self->{sentCommand}; 
@@ -223,7 +265,13 @@ sub handle_system_message_beacon {
 sub handle_system_message_clockOverflow {
 	my ($self) = @_;
 
-	$self->session->_update_clock_accumulator; 
+	$self->{clockCounter}++; 
+}
+
+sub handle_system_message_processorCounterOverflow {
+	my ($self) = @_; 
+
+	$self->{processorCounter}++; 
 }
 
 sub handle_system_message {
@@ -235,6 +283,8 @@ sub handle_system_message {
 		$self->handle_system_message_clockOverflow; 
 	} elsif ($type == 1) {
 		$self->handle_system_message_commandResponse($content); 
+	} elsif ($type == 3) {
+		$self->handle_system_message_processorCounterOverflow; 
 	} else {
 		die "Unknown system message type: $type";
 	}
@@ -278,6 +328,8 @@ sub new {
 	
 	$self->{clockAccumulator} = 0; 
 	
+	print "Session started at ", scalar(localtime()), "\n";
+	
 	return $self; 
 }
 
@@ -287,13 +339,14 @@ sub _update_clock_accumulator {
 	$self->{clockAccumulator}++; 
 	
 	if ($self->{clockAccumulator} % 1000 == 0) {
-		print "zonk!\n"; 
+		print "Got 1000 ticks at ", scalar(localtime()), "\n"; 
 	}
 	
-	if ($self->{clockAccumulator} == 3000) {
-		$self->{firmdata}->sendCommand("SESSION_END"); 
-		die "session completed"; 
-	}
+#	if ($self->{clockAccumulator} == 3000) {
+#		$self->{firmdata}->sendCommand("SESSION_END"); 
+#		print "Session completed at ", scalar(localtime()), "\n"; 
+#		exit(0);
+#	}
 }
 
 package main; 
@@ -322,13 +375,7 @@ print '';
 my $firmdataDriver = Device::Firmdata::Serial->new(shift(@ARGV)); 
 my $firmdata = Device::Firmdata->new($firmdataDriver); 
 
-while(1) {
-	$firmdata->poll(); 
-}
-
-
-
-
+$firmdata->run;
 
 
 

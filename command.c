@@ -42,6 +42,7 @@ bool command_send_response(uint8_t command, void *ret, uint8_t len) {
 
 static bool command_handle_session_start(uint8_t command, volatile struct atomq *p) {
 	session_event_deliver(session_event_startSession);
+
 	return true;
 }
 

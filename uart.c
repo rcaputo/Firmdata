@@ -16,6 +16,7 @@
 #include "message.h"
 #include "command.h"
 #include "led.h"
+#include "processor.h"
 
 volatile struct atomq *inputBuf;
 volatile struct atomq *outputBuf;
@@ -102,7 +103,7 @@ void uart_init(void) {
 ISR(USART_UDRE_vect) {
 	static unsigned char byte;
 
-	led_on();
+	processor_busy();
 
 	if (! atomq_dequeue(outputBuf, false, &byte)) {
 		UART_UDRE_DISABLE;
@@ -119,7 +120,7 @@ ISR(USART_UDRE_vect) {
 ISR(USART_RX_vect) {
 	static unsigned char byte;
 
-	led_on();
+	processor_busy();
 
 	if (! UCSR0A & _BV(RXC0)) {
 		fault_fatal(FAULT_UART_RX_ISR_WOULD_BLOCK_ON_RECEIVE);

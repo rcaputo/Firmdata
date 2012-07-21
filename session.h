@@ -13,6 +13,9 @@
 
 enum session_event {
 	session_event_startSession, session_event_endSession,
+	session_event_clockOverflow, session_event_processorCounterOverflow,
+
+	session_event_test
 };
 
 void session_init(void);
