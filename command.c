@@ -98,6 +98,12 @@ static bool command_handle_test(uint8_t command, volatile struct atomq *p) {
 	return true;
 }
 
+static bool command_handle_heartBeat(uint8_t command, volatile struct atomq *p) {
+	session_event_deliver(session_event_heartBeat);
+
+	return true;
+}
+
 static bool command_handle(uint8_t command, volatile struct atomq *p) {
 	switch(command) {
 		case COMMAND_NAME_NOP: return command_handle_nop(command, p);
@@ -106,6 +112,7 @@ static bool command_handle(uint8_t command, volatile struct atomq *p) {
 		case COMMAND_NAME_TEST: return command_handle_test(command, p);
 		case COMMAND_NAME_SESSION_START: return command_handle_session_start(command, p);
 		case COMMAND_NAME_SESSION_END: return command_handle_session_end(command, p);
+		case COMMAND_NAME_HEARTBEAT: return command_handle_heartBeat(command, p);
 		default: fault_fatal(FAULT_MESSAGE_COMMAND_NO_MATCH); break;
 	}
 

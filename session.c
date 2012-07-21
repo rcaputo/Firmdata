@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <util/atomic.h>
 
 #include "config.h"
 #include "session.h"
@@ -21,39 +22,55 @@
 bool sessionActive;
 volatile struct atomq *eventQueue;
 uint8_t broadcastTimer;
-uint8_t testTimer;
+uint8_t watchdogTimer;
+bool gotHeartBeat;
 
 static void session_start_broadcast(void);
 static void session_stop_broadcast(void);
+static void session_handle_event_endSession(void);
 
-void session_event_deliver(enum session_event event) {
+void session_event_deliver(enum session_eventId event) {
 	if (! atomq_enqueue(eventQueue, false, &event)) {
 		fault_fatal(FAULT_SESSION_EVENT_DELIVER_WOULD_BLOCK);
 	}
 }
 
-void session_test_timer_cb(volatile struct timer *p) {
-	session_event_deliver(session_event_test);
+void session_watchdog_timer_cb(volatile struct timer *p) {
+	if (! gotHeartBeat) {
+		session_handle_event_endSession();
+	}
+
+	gotHeartBeat = false;
 }
 
 static void session_handle_event_startSession(void) {
 	session_stop_broadcast();
 
-	testTimer = timer_create(5, 0, true, session_test_timer_cb, NULL);
+	watchdogTimer = timer_create(CLOCK_HZ * 2, 0, true, session_watchdog_timer_cb, NULL);
 
-	clock_reset();
-	processor_counter_reset();
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		clock_reset();
+		processor_counter_reset();
+		atomq_reset(eventQueue);
 
-	sessionActive = 1;
+		sessionActive = 1;
+	}
+
 	command_send_response(COMMAND_NAME_SESSION_START, NULL, 0);
 
-	timer_start(testTimer);
+	timer_start(watchdogTimer);
 }
 
 static void session_handle_event_endSession(void) {
 	clock_reset();
 
-	sessionActive = 0;
+	timer_delete(watchdogTimer);
+
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		sessionActive = 0;
+		atomq_reset(eventQueue);
+	}
+
 	command_send_response(COMMAND_NAME_SESSION_END, NULL, 0);
 	session_start_broadcast();
 }
@@ -88,13 +105,18 @@ static void session_handle_event_test(void) {
 	message_send(1, true, &buf, 2);
 }
 
-static void session_handle_event(enum session_event currentEvent) {
+static void session_handle_event_heartBeat(void) {
+	gotHeartBeat = true;
+}
+
+static void session_handle_event(enum session_eventId currentEvent) {
 	switch(currentEvent) {
 		case session_event_startSession: return session_handle_event_startSession();
 		case session_event_endSession: return session_handle_event_endSession();
 		case session_event_clockOverflow: return session_handle_event_clockOverflow();
 		case session_event_processorCounterOverflow: return session_handle_event_processorOverflow();
 		case session_event_test: return session_handle_event_test();
+		case session_event_heartBeat: return session_handle_event_heartBeat();
 	};
 
 	fault_fatal(FAULT_SESSION_HANDLE_EVENT_EXITED_SWITCH);
@@ -124,7 +146,7 @@ static void session_stop_broadcast(void) {
 }
 
 void session_update(void) {
-	static enum session_event currentEvent;
+	static enum session_eventId currentEvent;
 
 	while (atomq_dequeue(eventQueue, false, &currentEvent)) {
 		session_handle_event(currentEvent);
@@ -133,8 +155,9 @@ void session_update(void) {
 
 void session_init(void) {
 	sessionActive = 0;
+	gotHeartBeat = false;
 
-	eventQueue = atomq_alloc(SESSION_EVENT_QUEUE_SIZE, sizeof(enum session_event));
+	eventQueue = atomq_alloc(SESSION_EVENT_QUEUE_SIZE, sizeof(enum session_eventId));
 
 	session_start_broadcast();
 }

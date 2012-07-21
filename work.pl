@@ -99,7 +99,7 @@ BEGIN {
 	
 	our %COMMAND_NUMBERS = (
 		NOP => 1, ECHO => 2, IDENTIFY => 3, TEST => 4, 
-		SESSION_START => 10, SESSION_END => 11,
+		SESSION_START => 10, SESSION_END => 11, HEARTBEAT => 12
 	);
 	
 	while(my ($name, $number) = each(%COMMAND_NUMBERS)) {
@@ -127,6 +127,9 @@ sub new {
 	
 	$US = $self; 
 	
+	$| = 1;
+	print '';
+	
 	return $self; 
 }
 
@@ -134,6 +137,8 @@ sub update_status {
 	my ($self) = @_; 
 	
 	alarm(1); 
+	
+	$self->sendCommand("HEARTBEAT") if defined $self->{session};
 	$self->print_status;
 }
 
@@ -150,7 +155,7 @@ sub print_status {
 	print "Clock ticks: ", $self->{clockCounter};
 	print "; Processor ticks: ", $self->{processorCounter};
 	print "; Utilization: $utilization%" if defined $utilization; 
-	print "\n";
+	print "                   \r";
 }
 
 sub run {
@@ -186,19 +191,26 @@ sub sendCommand {
 	my $message = pack('C', $commandNumber);
 	my $retArgs; 
 	
-	if (defined($self->{sentCommand})) {
-		die "attempt to send command '$commandName' while waiting for the response from command ", $self->get_command_name($self->{sentCommand}); 
+	if ($commandName ne 'HEARTBEAT') {
+		if (defined($self->{sentCommand})) {
+			die "attempt to send command '$commandName' while waiting for the response from command ", $self->get_command_name($self->{sentCommand}); 
+		}
+		
+		$self->{sentCommand} = $commandNumber; 
+		$self->{gotCommandResponse} = 0; 
+		$self->{commandResponseArgs} = undef; 
 	}
 	
-	$self->{sentCommand} = $commandNumber; 
-	$self->{gotCommandResponse} = 0; 
-	$self->{commandResponseArgs} = undef; 
 	
 	if (defined($args)) {
 		$message .= $args;
 	}
 	
 	$self->driver->sendMessage(31, $message);
+	
+	if ($commandName eq 'HEARTBEAT') {
+		return; 
+	}
 		
 	while(! $self->{gotCommandResponse}) {
 		$self->poll; 
@@ -266,6 +278,12 @@ sub handle_system_message_clockOverflow {
 	my ($self) = @_;
 
 	$self->{clockCounter}++; 
+
+	if ($self->{clockCounter} == 1000) {
+		undef($self->{session});
+		$self->sendCommand("SESSION_END");
+		exit(1);
+	}
 }
 
 sub handle_system_message_processorCounterOverflow {
@@ -331,22 +349,6 @@ sub new {
 	print "Session started at ", scalar(localtime()), "\n";
 	
 	return $self; 
-}
-
-sub _update_clock_accumulator {
-	my ($self) = @_;
-	
-	$self->{clockAccumulator}++; 
-	
-	if ($self->{clockAccumulator} % 1000 == 0) {
-		print "Got 1000 ticks at ", scalar(localtime()), "\n"; 
-	}
-	
-#	if ($self->{clockAccumulator} == 3000) {
-#		$self->{firmdata}->sendCommand("SESSION_END"); 
-#		print "Session completed at ", scalar(localtime()), "\n"; 
-#		exit(0);
-#	}
 }
 
 package main; 

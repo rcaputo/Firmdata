@@ -22,5 +22,6 @@ bool command_send_response(uint8_t command, void *ret, uint8_t len);
 #define COMMAND_NAME_TEST 4
 #define COMMAND_NAME_SESSION_START 10
 #define COMMAND_NAME_SESSION_END 11
+#define COMMAND_NAME_HEARTBEAT 12
 
 #endif /* COMMAND_H_ */

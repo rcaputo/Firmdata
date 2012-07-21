@@ -29,6 +29,12 @@ volatile struct atomq * atomq_alloc(uint8_t numSlots, uint8_t slotSize) {
 	return tmp;
 }
 
+void atomq_reset(volatile struct atomq *queue) {
+	queue->headOffset = 0;
+	queue->tailOffset = 0;
+	queue->dirty = 0;
+}
+
 bool atomq_enqueue_nb(volatile struct atomq *queue, void *src) {
 
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {

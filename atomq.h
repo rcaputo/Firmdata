@@ -34,5 +34,6 @@ bool atomq_dequeue(volatile struct atomq *queue, bool shouldBlock, void *dest);
 uint8_t atomq_slots_consumed(volatile struct atomq *queue);
 uint8_t atomq_slots_available(volatile struct atomq *queue);
 bool atomq_peek(volatile struct atomq *queue, bool shouldBlock, void *dest);
+void atomq_reset(volatile struct atomq *queue);
 
 #endif /* ATOMQ_H_ */
