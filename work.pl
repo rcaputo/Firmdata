@@ -7,17 +7,28 @@ use constant HEADER_CHANNEL_MASK => 248;
 use constant HEADER_CHANNEL_SHIFT => 3; 
 use constant HEADER_SIZE_MASK => 7; 
 
+use Win32::SerialPort; 
+
 sub new {
-	my ($class, $path) = @_; 
+	my ($class, $port) = @_; 
 	my $self = bless({}, $class); 
 	my $fh;
-	
-	open($fh, "+<", '/dev/ttyS2') or die "could not open $path for read/write: $!";
-	
+
+		
+	$self->{serial} = Win32::SerialPort->new($port);
 	$self->{fh} = $fh; 
 	$self->{accumulators} = { send => 0, recv => 0 }; 
 	
+	$self->serial->baudrate(57600);
+	$self->serial->parity('none');
+	$self->serial->stopbits(1);
+	$self->serial->read_interval(0);
+	
 	return $self; 
+}
+
+sub serial {
+	return $_[0]->{serial};
 }
 
 sub get_accumulators {
@@ -32,9 +43,8 @@ sub get_accumulators {
 
 sub read {
 	my ($self, $bytes) = @_; 
-	my $buf;
 	
-	my $bytesRead = read($self->{fh}, $buf, $bytes);
+	my ($bytesRead, $buf) = $self->serial->read($bytes);
 	
 	if ($bytesRead < 0) {
 		die "Could not read: $!";
@@ -52,7 +62,7 @@ sub write {
 	my $length = length($content); 
 	my $written; 
 	
-	$written = syswrite($self->{fh}, $content, $length);
+	$written = $self->serial->write($content);
 	
 	if ($written != $length) {
 		die "tried to write $length bytes but only wrote $written: $!"; 
@@ -104,7 +114,7 @@ package Device::Firmdata;
 use strict;
 use warnings; 
 
-use Time::HiRes qw(gettimeofday alarm); 
+use Time::HiRes qw(gettimeofday); 
 
 $SIG{ALRM} = sub { our($US); update_status($US) if defined $US; };
 
@@ -154,7 +164,7 @@ sub new {
 sub update_status {
 	my ($self) = @_; 
 		
-	alarm(.2); 
+	alarm(1); 
 		
 	$self->sendCommand("HEARTBEAT") if defined $self->{session};
 	$self->print_status;
@@ -273,6 +283,7 @@ sub handle_data {
 	my $time = $self->{clockCounter} * 256 + $relativeTime; 	
 	
 	print "$channel\t$time\t", unpack('C', $content), "\n";
+	#print unpack('C', $content), ' ' if $channel == 1;
 }
 
 sub handle_system_message_commandResponse {
@@ -308,7 +319,7 @@ sub handle_system_message_beacon {
 	
 	$self->{session} = Device::Firmdata::Session->new($self);
 	
-	$self->sendCommand('SUBSCRIBE', pack('CCS<', 1, 1, 100));
+	$self->sendCommand('SUBSCRIBE', pack('CCS<', 1, 1, 5));
 	$self->sendCommand('SUBSCRIBE', pack('CCS<', 2, 2, 100));
 }
 
@@ -322,7 +333,7 @@ sub handle_system_message_clockOverflow {
 	$self->{timestamps}->{clockCounter} = gettimeofday(); 
 	
 	if (defined($lastOverflow)) {
-		print "c\t", scalar(gettimeofday()), "\n";
+		#print "c\t", scalar(gettimeofday()), "\n";
 	}
 }
 
