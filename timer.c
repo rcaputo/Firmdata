@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "config.h"
 #include "timer.h"
@@ -41,14 +42,32 @@ void timer_start(uint8_t timerId) {
 	timers[timerId].active = true;
 }
 
-void timer_stop(uint8_t timerId) {
+void timer_pause(uint8_t timerId) {
 	timers[timerId].active = false;
+}
+
+void timer_stop(uint8_t timerId) {
+	timer_pause(timerId);
 	timers[timerId].count = 0;
 }
 
 void timer_delete(uint8_t timerId) {
+	if (timers[timerId].handlerArg != NULL) {
+		free(timers[timerId].handlerArg);
+	}
+
 	timer_stop(timerId);
 	timers[timerId].taken = false;
+	timers[timerId].handler = NULL;
+	timers[timerId].handlerArg = NULL;
+}
+
+void timer_delete_all(void) {
+	static int i;
+
+	for(i = 0; i < TIMER_NUM_SLOTS; i++) {
+		timer_delete(i);
+	}
 }
 
 static void timer_update(volatile struct timer *p) {

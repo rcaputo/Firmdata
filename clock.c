@@ -61,6 +61,6 @@ ISR(TIMER0_COMPA_vect) {
 ISR(TIMER0_OVF_vect) {
 	processor_busy();
 
-	session_event_deliver(session_event_clockOverflow);
+	session_event_deliver_clockOverflow();
 }
 

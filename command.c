@@ -41,13 +41,13 @@ bool command_send_response(uint8_t command, void *ret, uint8_t len) {
 }
 
 static bool command_handle_session_start(uint8_t command, volatile struct atomq *p) {
-	session_event_deliver(session_event_startSession);
+	session_event_deliver_sessionStart();
 
 	return true;
 }
 
 static bool command_handle_session_end(uint8_t command, volatile struct atomq *p) {
-	session_event_deliver(session_event_endSession);
+	session_event_deliver_sessionEnd();
 	return true;
 }
 
@@ -99,7 +99,29 @@ static bool command_handle_test(uint8_t command, volatile struct atomq *p) {
 }
 
 static bool command_handle_heartBeat(uint8_t command, volatile struct atomq *p) {
-	session_event_deliver(session_event_heartBeat);
+	session_event_deliver_heartBeat();
+
+	return true;
+}
+
+static bool command_handle_subscribe(uint8_t command, volatile struct atomq *p) {
+	unsigned char buf[4];
+	uint16_t timerTopBuf;
+	int i;
+
+	if (atomq_slots_consumed(p) < 4) {
+		return false;
+	}
+
+	for(i = 0; i < 4; i++) {
+		if(! atomq_dequeue(p, false, &buf[i])) {
+			fault_fatal(FAULT_MESSAGE_COMMAND_SUBSCRIBE_WOULD_BLOCK);
+		}
+	}
+
+	timerTopBuf = buf[2] | buf[3] << 8;
+
+	session_event_deliver_subscribe(buf[0], buf[1], timerTopBuf);
 
 	return true;
 }
@@ -113,6 +135,7 @@ static bool command_handle(uint8_t command, volatile struct atomq *p) {
 		case COMMAND_NAME_SESSION_START: return command_handle_session_start(command, p);
 		case COMMAND_NAME_SESSION_END: return command_handle_session_end(command, p);
 		case COMMAND_NAME_HEARTBEAT: return command_handle_heartBeat(command, p);
+		case COMMAND_NAME_SUBSCRIBE: return command_handle_subscribe(command, p);
 		default: fault_fatal(FAULT_MESSAGE_COMMAND_NO_MATCH); break;
 	}
 

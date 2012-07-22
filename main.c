@@ -22,6 +22,7 @@
 #include "timer.h"
 #include "session.h"
 #include "processor.h"
+#include "adc.h"
 
 void main_init(void) {
 	processor_init();
@@ -30,6 +31,7 @@ void main_init(void) {
 	fault_init();
 	atomq_init();
 	uart_init();
+	adc_init();
 	message_init();
 	command_init();
 	clock_init();

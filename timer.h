@@ -31,6 +31,7 @@ void timer_tick(void);
 uint8_t timer_create(uint16_t top, uint16_t offset, bool repeat, timer_cb *handler, void *handlerArg);
 void timer_start(uint8_t timerId);
 void timer_delete(uint8_t timerId);
-
+void timer_pause(uint8_t timerId);
+void timer_delete_all(void);
 
 #endif /* TIMER_H_ */

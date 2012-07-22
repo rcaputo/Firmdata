@@ -38,5 +38,5 @@ void processor_init(void) {
 ISR(TIMER2_OVF_vect) {
 	processor_busy();
 
-	session_event_deliver(session_event_processorCounterOverflow);
+	session_event_deliver_processorCounterOverflow();
 }

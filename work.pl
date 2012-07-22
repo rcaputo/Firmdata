@@ -15,8 +15,19 @@ sub new {
 	open($fh, "+<", '/dev/ttyS2') or die "could not open $path for read/write: $!";
 	
 	$self->{fh} = $fh; 
+	$self->{accumulators} = { send => 0, recv => 0 }; 
 	
 	return $self; 
+}
+
+sub get_accumulators {
+	my ($self) = @_;
+	my $send = $self->{accumulators}->{send};
+	my $recv = $self->{accumulators}->{recv}; 
+		
+	$self->{accumulators} = { send => 0, recv => 0 };	
+	
+	return ($send, $recv); 
 }
 
 sub read {
@@ -31,6 +42,8 @@ sub read {
 		die "read of $bytes requested but only read $bytesRead";
 	}
 	
+	$self->{accumulators}->{recv} += $bytes; 
+	
 	return $buf; 
 }
 
@@ -44,6 +57,8 @@ sub write {
 	if ($written != $length) {
 		die "tried to write $length bytes but only wrote $written: $!"; 
 	}
+	
+	$self->{accumulators}->{send} += $written; 
 	
 	return; 
 }
@@ -63,7 +78,7 @@ sub getMessage {
 	my ($channel, $length) = $self->getHeader; 
 	my $content = $self->read($length); 
 	
-	return ($channel, $content, $length); 
+	return ($channel, $content, $length + 1); 
 }
 
 sub sendHeader {
@@ -81,7 +96,7 @@ sub sendMessage {
 	
 	#TODO - update command.c and message.c to support commands embeded in messages
 	#$self->sendHeader($channel, length($content)); 
-	$self->write($content); 
+	$self->write($content); 	
 }
 
 package Device::Firmdata;
@@ -89,9 +104,11 @@ package Device::Firmdata;
 use strict;
 use warnings; 
 
-use Time::HiRes qw(gettimeofday); 
+use Time::HiRes qw(gettimeofday alarm); 
 
 $SIG{ALRM} = sub { our($US); update_status($US) if defined $US; };
+
+use constant CLOCK_HZ => 2500; 
 
 BEGIN {
 	my %numbers; 
@@ -99,7 +116,8 @@ BEGIN {
 	
 	our %COMMAND_NUMBERS = (
 		NOP => 1, ECHO => 2, IDENTIFY => 3, TEST => 4, 
-		SESSION_START => 10, SESSION_END => 11, HEARTBEAT => 12
+		SESSION_START => 10, SESSION_END => 11, HEARTBEAT => 12,
+		SUBSCRIBE => 13,
 	);
 	
 	while(my ($name, $number) = each(%COMMAND_NUMBERS)) {
@@ -119,12 +137,12 @@ sub new {
 	$self->{commandResponseArgs} = undef; 
 	$self->{processorCounter} = 0; 
 	$self->{clockCounter} = 0; 
-	
+		
 	$self->{status} = {
 		lastProcessorCounter => 0,
 		lastClockCounter => 0,
 	};
-	
+		
 	$US = $self; 
 	
 	$| = 1;
@@ -135,27 +153,36 @@ sub new {
 
 sub update_status {
 	my ($self) = @_; 
-	
-	alarm(1); 
-	
+		
+	alarm(.2); 
+		
 	$self->sendCommand("HEARTBEAT") if defined $self->{session};
 	$self->print_status;
 }
 
 sub print_status {
 	my ($self) = @_; 
+	our ($lastHere); 
 	my $clockTicks = $self->{clockCounter} - $self->{status}->{lastClockCounter};
 	my $processorTicks = $self->{processorCounter} - $self->{status}->{lastProcessorCounter};
-	my $utilization;
+	my ($utilization, $sendSpeed, $recvSpeed);
+	my $now = gettimeofday();
+	
+	if (defined($lastHere)) {
+		my ($send, $recv) = $self->driver->get_accumulators; 
+		$sendSpeed = int($send / 1 / ($now - $lastHere)); 
+		$recvSpeed = int($recv / 1 / ($now - $lastHere)); 
+	}
+	
+	$lastHere = $now; 
 	
 	if ($clockTicks) {
 		$utilization = int($processorTicks / $clockTicks * 100);
 	}
 	
-	print "Clock ticks: ", $self->{clockCounter};
-	print "; Processor ticks: ", $self->{processorCounter};
-	print "; Utilization: $utilization%" if defined $utilization; 
-	print "                   \r";
+	print STDERR "uCPU:$utilization% " if defined $utilization; 
+	print STDERR "s:$sendSpeed r:$recvSpeed " if defined $sendSpeed; 
+	print STDERR "                   \r";
 }
 
 sub run {
@@ -181,7 +208,7 @@ sub poll {
 		$self->handle_stdio($fdno, $byte); 
 	} else {
 		my ($when) = unpack('C', $content); 
-		$self->handle_data($when, substr($content, 1));
+		$self->handle_data($channel, $when, substr($content, 1));
 	}	
 }
 
@@ -235,10 +262,17 @@ sub session {
 
 sub handle_stdio {
 	my ($self, $fdno, $byte) = @_; 	
+	
+	if ($fdno == 2) {
+		print STDERR $byte; 
+	}
 }
 
 sub handle_data {
+	my ($self, $channel, $relativeTime, $content) = @_; 
+	my $time = $self->{clockCounter} * 256 + $relativeTime; 	
 	
+	print "$channel\t$time\t", unpack('C', $content), "\n";
 }
 
 sub handle_system_message_commandResponse {
@@ -248,7 +282,7 @@ sub handle_system_message_commandResponse {
 	my $retArgs;
 	
 	if (! defined($lastSentCommand)) {
-		die "received a response to a command but there is no record of an outstanding command"; 
+		die "received a response to command $commandNumber but there is no record of an outstanding command"; 
 	} elsif ($lastSentCommand != $commandNumber) {
 		die "the last sent command was $lastSentCommand but the response is to command $commandNumber";
 	}
@@ -270,19 +304,25 @@ sub handle_system_message_beacon {
 	}
 	
 	$self->sendCommand('SESSION_START'); 
+	print STDERR "Session started at ", scalar(localtime()), "\n";
 	
 	$self->{session} = Device::Firmdata::Session->new($self);
+	
+	$self->sendCommand('SUBSCRIBE', pack('CCS<', 1, 1, 100));
+	$self->sendCommand('SUBSCRIBE', pack('CCS<', 2, 2, 100));
 }
 
 sub handle_system_message_clockOverflow {
 	my ($self) = @_;
 
 	$self->{clockCounter}++; 
-
-	if ($self->{clockCounter} == 1000) {
-		undef($self->{session});
-		$self->sendCommand("SESSION_END");
-		exit(1);
+	
+	my $lastOverflow = $self->{timestamps}->{clockCounter}; 
+	
+	$self->{timestamps}->{clockCounter} = gettimeofday(); 
+	
+	if (defined($lastOverflow)) {
+		print "c\t", scalar(gettimeofday()), "\n";
 	}
 }
 
@@ -345,9 +385,7 @@ sub new {
 	weaken($self->{firmdata}); 
 	
 	$self->{clockAccumulator} = 0; 
-	
-	print "Session started at ", scalar(localtime()), "\n";
-	
+		
 	return $self; 
 }
 
@@ -378,8 +416,6 @@ my $firmdataDriver = Device::Firmdata::Serial->new(shift(@ARGV));
 my $firmdata = Device::Firmdata->new($firmdataDriver); 
 
 $firmdata->run;
-
-
 
 
 
