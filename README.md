@@ -1,10 +1,7 @@
 Firmdata
 ========
 
-Send and receive data using AVR micro-controller IO ports 
-
-Bugs:
-	* ADC operation is not reliable when running at a few timer ticks as a sample rate
+Send and receive data using the IO ports on a AVR Atmega328p based Arduino Duemilanove
 
 Erratta:
-	* ADC sample jitter has been measured to be up to 3ms 
+	* ADC sample jitter can be up to 10ms at times but is usually under 16ns

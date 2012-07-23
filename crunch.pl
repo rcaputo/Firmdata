@@ -15,6 +15,6 @@ while(<>) {
 	
 	$lastSample = $time; 
 	$lastDelay = $delay; 
-	
-	print "$change ";
+
+	printf "$time\t%.6f\n", $change * 1000;
 }

@@ -119,6 +119,7 @@ use Time::HiRes qw(gettimeofday);
 $SIG{ALRM} = sub { our($US); update_status($US) if defined $US; };
 
 use constant CLOCK_HZ => 2500; 
+use constant CLOCK_TICK_NS => 16; 
 
 BEGIN {
 	my %numbers; 
@@ -136,7 +137,7 @@ BEGIN {
 }
 
 sub new {
-	my ($class, $messageDriver) = @_; 
+	my ($class, $messageDriver, $sessionClassName) = @_; 
 	my $self = bless({}, $class);
 	our $US; 
 	
@@ -147,6 +148,8 @@ sub new {
 	$self->{commandResponseArgs} = undef; 
 	$self->{processorCounter} = 0; 
 	$self->{clockCounter} = 0; 
+	$self->{firstClockOverflowTimestamp} = undef; 
+	$self->{sessionClassName} = $sessionClassName;
 		
 	$self->{status} = {
 		lastProcessorCounter => 0,
@@ -177,6 +180,11 @@ sub print_status {
 	my $processorTicks = $self->{processorCounter} - $self->{status}->{lastProcessorCounter};
 	my ($utilization, $sendSpeed, $recvSpeed);
 	my $now = gettimeofday();
+		
+	if (defined($self->{wallTime}) && defined($self->{captureTime})) {
+		print STDERR sprintf("clock error:%.4f ", $self->{wallTime} - $self->{captureTime});
+		
+	}
 	
 	if (defined($lastHere)) {
 		my ($send, $recv) = $self->driver->get_accumulators; 
@@ -192,7 +200,8 @@ sub print_status {
 	
 	print STDERR "uCPU:$utilization% " if defined $utilization; 
 	print STDERR "s:$sendSpeed r:$recvSpeed " if defined $sendSpeed; 
-	print STDERR "                   \r";
+	print STDERR $self->session->update if defined $self->session; 
+	print STDERR "   \r";
 }
 
 sub run {
@@ -280,10 +289,10 @@ sub handle_stdio {
 
 sub handle_data {
 	my ($self, $channel, $relativeTime, $content) = @_; 
-	my $time = $self->{clockCounter} * 256 + $relativeTime; 	
-	
-	print "$channel\t$time\t", unpack('C', $content), "\n";
-	#print unpack('C', $content), ' ' if $channel == 1;
+	my $time = $self->{clockCounter} * 256 + $relativeTime;
+	my $timeSeconds = $time * CLOCK_TICK_NS / 1000000;
+		
+	$self->session->data($channel, $timeSeconds, unpack('C', $content));
 }
 
 sub handle_system_message_commandResponse {
@@ -317,23 +326,24 @@ sub handle_system_message_beacon {
 	$self->sendCommand('SESSION_START'); 
 	print STDERR "Session started at ", scalar(localtime()), "\n";
 	
-	$self->{session} = Device::Firmdata::Session->new($self);
-	
-	$self->sendCommand('SUBSCRIBE', pack('CCS<', 1, 1, 5));
-	$self->sendCommand('SUBSCRIBE', pack('CCS<', 2, 2, 100));
+	$self->{session} = $self->{sessionClassName}->new($self);
+	$self->{session}->init; 
 }
 
 sub handle_system_message_clockOverflow {
 	my ($self) = @_;
+	my $now = gettimeofday(); 
 
 	$self->{clockCounter}++; 
-	
-	my $lastOverflow = $self->{timestamps}->{clockCounter}; 
-	
-	$self->{timestamps}->{clockCounter} = gettimeofday(); 
-	
-	if (defined($lastOverflow)) {
-		#print "c\t", scalar(gettimeofday()), "\n";
+		
+	if (! defined($self->{firstClockOverflowTimestamp})) {
+		$self->{firstClockOverflowTimestamp} = $now; 
+	} else {
+		my $sessionDurationWall = $now - $self->{firstClockOverflowTimestamp};
+		my $sessionDurationCapture = $self->{clockCounter} * 256 * CLOCK_TICK_NS / 1000000; 
+		
+		$self->{wallTime} = $sessionDurationWall;
+		$self->{captureTime} = $sessionDurationCapture; 
 	}
 }
 
@@ -385,7 +395,6 @@ package Device::Firmdata::Session;
 
 use strict;
 use warnings; 
-
 use Scalar::Util qw(weaken); 
 
 sub new {
@@ -394,28 +403,38 @@ sub new {
 	
 	$self->{firmdata} = $firmdata; 
 	weaken($self->{firmdata}); 
-	
-	$self->{clockAccumulator} = 0; 
-		
+				
 	return $self; 
 }
 
-package main; 
+sub init {
+	my ($self) = @_;
+}
 
-#my $buf; 
-#
-#print $serial pack('CCCCCCC', 4, 80, 2, 9, 4, 5, 9) or die "could not write";
-#
-#$| = 1;
-#print ''; 
-#
-#read($serial, $buf, 4) == 4 or die "could not read";
-#my ($messageHeader, $command, $resp) = unpack('CCS<', $buf);
-#my $messageChannel = ($messageHeader & 248) >> 3; 
-#my $messageSize = $messageHeader & 7; 
-#
-#print "$messageHeader $messageChannel $messageSize $command $resp\n";
-#
+sub subscribe {
+	my ($self, $pin, $channel, $interval, $offset) = @_; 
+
+	$offset = 0 unless defined $offset; 
+	die "must specify interval" unless defined $interval;
+	die "must specify a channel" unless defined $channel;
+	die "must specify a pin" unless defined $pin; 	
+	
+	$self->{firmdata}->sendCommand('SUBSCRIBE', pack('CCS<S<', $pin, $channel, $interval, $offset));
+}
+
+sub update {
+	my ($self) = @_; 
+
+	return '';
+}
+
+sub data {
+	my ($self, $channel, $when, $content) = @_;
+	
+	return; 
+}
+
+package main; 
 
 use strict;
 use warnings;
@@ -424,7 +443,7 @@ $| = 1;
 print ''; 
 
 my $firmdataDriver = Device::Firmdata::Serial->new(shift(@ARGV)); 
-my $firmdata = Device::Firmdata->new($firmdataDriver); 
+my $firmdata = Device::Firmdata->new($firmdataDriver, 'Device::Firmdata::Session'); 
 
 $firmdata->run;
 
