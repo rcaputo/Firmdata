@@ -8,13 +8,13 @@ my $lastSample = 0;
 my $lastDelay = 0; 
 
 while(<>) {
-	my ($channel, $time, $value) = split("\t");
-	
+	my ($channel, $time, $value) = split(/\s+/);
+
 	my $delay = $time - $lastSample; 
 	my $change = $delay - $lastDelay; 
 	
 	$lastSample = $time; 
 	$lastDelay = $delay; 
 	
-	print "$change\n";
+	print "$change ";
 }

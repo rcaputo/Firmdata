@@ -22,7 +22,7 @@ volatile uint8_t currentSampleTime;
 void adc_init(void) {
 	//left adjust result for lower precision
 	ADMUX |= 1 << ADLAR;
-	//TODO: select /128 prescaler and over-drive the adc to get faster samples of lower resolution
+	///128 prescaler
 	ADCSRA |= 1 << ADPS2 | 1 << ADPS1 | 1 << ADPS0;
 
 	ADMUX |= 1 << REFS0;

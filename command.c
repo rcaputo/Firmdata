@@ -105,23 +105,24 @@ static bool command_handle_heartBeat(uint8_t command, volatile struct atomq *p) 
 }
 
 static bool command_handle_subscribe(uint8_t command, volatile struct atomq *p) {
-	unsigned char buf[4];
-	uint16_t timerTopBuf;
+	unsigned char buf[6];
+	uint16_t timerTopBuf, timerOffsetBuff;
 	int i;
 
-	if (atomq_slots_consumed(p) < 4) {
+	if (atomq_slots_consumed(p) < 6) {
 		return false;
 	}
 
-	for(i = 0; i < 4; i++) {
+	for(i = 0; i < 6; i++) {
 		if(! atomq_dequeue(p, false, &buf[i])) {
 			fault_fatal(FAULT_MESSAGE_COMMAND_SUBSCRIBE_WOULD_BLOCK);
 		}
 	}
 
 	timerTopBuf = buf[2] | buf[3] << 8;
+	timerOffsetBuff = buf[4] | buf[5] << 8;
 
-	session_event_deliver_subscribe(buf[0], buf[1], timerTopBuf);
+	session_event_deliver_subscribe(buf[0], buf[1], timerTopBuf, timerOffsetBuff);
 
 	return true;
 }

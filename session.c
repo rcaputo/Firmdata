@@ -147,13 +147,15 @@ static void session_handle_event_adcSampleReady(volatile struct session_event *c
 	}
 }
 
-void session_event_deliver_subscribe(uint8_t pin, uint8_t channel, uint16_t timerTop) {
+void session_event_deliver_subscribe(uint8_t pin, uint8_t channel, uint16_t timerTop, uint16_t timerOffset) {
 	static volatile struct session_event event = { session_event_subscribe, { } };
 
 	event.data[0] = pin;
 	event.data[1] = channel;
 	event.data[2] = timerTop & 255;
 	event.data[3] = timerTop >> 8;
+	event.data[4] = timerOffset & 255;
+	event.data[5] = timerOffset >> 8;
 
 	session_event_deliver(&event);
 }
@@ -170,10 +172,11 @@ static void session_handle_event_subscribe(volatile struct session_event *curren
 	subscription->channel = currentEvent->data[1];
 
 	subscription->timerTop = currentEvent->data[2] | currentEvent->data[3] << 8;
+	subscription->timerOffset = currentEvent->data[3] | currentEvent->data[4] << 8;
 
 	command_send_response(COMMAND_NAME_SUBSCRIBE, NULL, 0);
 
-	timer = timer_create(subscription->timerTop, 0, true, session_subscription_timer_cb, subscription);
+	timer = timer_create(subscription->timerTop, subscription->timerOffset, true, session_subscription_timer_cb, subscription);
 	timer_start(timer);
 }
 

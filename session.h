@@ -30,6 +30,7 @@ struct session_subscription {
 	uint8_t pin;
 	uint8_t channel;
 	uint16_t timerTop;
+	uint16_t timerOffset;
 };
 
 void session_init(void);
@@ -41,7 +42,7 @@ void session_event_deliver_clockOverflow(void);
 void session_event_deliver_processorCounterOverflow(void);
 void session_event_deliver_heartBeat(void);
 void session_event_deliver_adcSampleReady(uint8_t pin, uint8_t timeStamp, uint8_t data);
-void session_event_deliver_subscribe(uint8_t pin, uint8_t channel, uint16_t timerTop);
+void session_event_deliver_subscribe(uint8_t pin, uint8_t channel, uint16_t timerTop, uint16_t timerOffset);
 
 
 #endif /* SESSION_H_ */
