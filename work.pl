@@ -345,6 +345,8 @@ sub handle_system_message_clockOverflow {
 		$self->{wallTime} = $sessionDurationWall;
 		$self->{captureTime} = $sessionDurationCapture; 
 	}
+	
+	$self->session->clock_overflow if defined $self->{session};
 }
 
 sub handle_system_message_processorCounterOverflow {
@@ -432,6 +434,10 @@ sub data {
 	my ($self, $channel, $when, $content) = @_;
 	
 	return; 
+}
+
+sub clock_overflow {
+	my ($self) = @_;
 }
 
 package main; 

@@ -18,7 +18,9 @@ flows like this:
       session events for the duration of the session.
     * The client optionally sends a session end command or just stops communication with the Firmdata device. 
     
+    
 Messages
+
 
 A message contains a 1 byte header which itself contains the message channel and the message length. 
 There are 32 distinct channels available with a maximum message length of 7 bytes; a zero size message is still
@@ -30,7 +32,9 @@ message is retrieved from the message header and the message contents are read f
 is positive. The message value is both the message channel id and the content which is then provided to the 
 consumer of a message. 
  
+ 
 Channels
+
 
 Firmdata provides channels 1-30 for data transmission and reception and reserves channel 0 and 31 for system use. 
 Channel 31 is used to send commands to Firmdata and to receive session events while channel 0 is used to receive
@@ -48,7 +52,9 @@ used; stdout maps to ASCII "start of heading" while stderr maps to "start of tex
 on channel 0 is itself the value of 2 which is ASCII "start of text." Both of those ASCII codes are ignored by
 most terminals. 
    
+   
 Session
+
 
 As described above a client must initiate and maintain a session with Firmdata by sending commands and receiving 
 session events. A session event is identified by a unique number and includes up to 6 bytes of returned data. Each
@@ -97,7 +103,9 @@ After the session is configured via the publish and subscribe commands the clien
 will immediately begin sending data to the client according to the configured subscriptions and send data to the IO pins according to the configured 
 publications. In addition to the data messages the client must also process a number of session events to maintain synchronization with Firmdata. 
 
+
 Session Events
+
 
 The session event messages are sent to the client as messages on channel 31 interleaved with the messages carying the subscribed data. Using the session 
 events to update the internal state of the client is required for the client to reconstruct the absolute time of a received piece of data using the 
@@ -140,36 +148,68 @@ ID	Name       					Response Only	Required action
 											
 Commands
 
+
 A command is sent to Firmdata as a message on channel 31. The first byte of the message is the command number and each command takes between 0 and 6
 bytes of data as an argument and returns between 0 and 6 bytes of data in the response. Each command includes a corresponding session event with the 
 same number that acts as a command confirmation. The following table lists the command names, arguments, and returned data; see the session event 
 table to get the command numbers for the command name.
 
-Name			Arguments					Returns			Description
-OPEN			none						none			Initiate a session with Firmdata
+Name			Arguments					Returns				Description
+OPEN			none						uint8	version		Initiate a session with Firmdata - returns the protocol version in use
 
-CLOSE			none						none			Destroy a session with Firmdata
+CLOSE			none						none				Destroy a session with Firmdata
 
 RUN				none						none		
 
-SUBSCRIBE		uint8 	input pin			none			Configure session to send data messages to client
+SUBSCRIBE		uint8 	input pin			none				Configure session to send data messages to client
 				uint8 	output channel
 				uint16 	sample interval
 				uint16 	phase offset
 				
-PUBLISH			uint8 	output pin			none			Configure session to receive data messages from client 
+PUBLISH			uint8 	output pin			none				Configure session to receive data messages from client 
 				uint8	input channel
 				
-NOP				none						none			no-operation performed
+NOP				none						none				no-operation performed
 
-ECHO			uint8	byte				uint8	byte	Returns argument to client unmodified 
+ECHO			uint8	byte				uint8	byte		Returns argument to client unmodified 
 
-TEST			uint8	number1				uint16	sum		Sums all 6 unsigned 8 bit integers specified
-				uint8	number2								in the arguments and returns the value as a 
-				uint8	number3								16 bit unsigned value
+TEST			uint8	number1				uint16	sum			Sums all 6 unsigned 8 bit integers specified
+				uint8	number2									in the arguments and returns the value as a 
+				uint8	number3									16 bit unsigned value
 				uint8	number4
 				uint8	number5
 				uint8	number6							
 											
-HEARTBEAT		none						none			Client must send periodic heart beat or the session will be
-															forcefully terminated 
+HEARTBEAT		none						none				Client must send periodic heart beat or the session will be
+																forcefully terminated 
+
+Subscriptions
+
+Subscribed data is delivered to the client as messages on channels 1 to 30. Data messages always include an 8 bit unsigned integer time stamp 
+followed by the data for the message. The time stamp is the clock counter value when the sample for the data was started; to calculate
+the absolute time the sample was taken since the start of the session multiply the clock overflow accumulator by 256 and sum it with the
+time stamp. This provides the absolute time for the sample in units of the clock precision. To calculate the absolute time in seconds multiply the
+clock resolution in nanoseconds (currently 16 us) by the calculated time stamp and divide by 1,000,000. 
+
+Using the computed time stamp it is possible to know the exact moment (within the precision of the clock) the data was captured at regardless of the latency
+and jitter of the communications channel; the message will be received with what ever latency is present on the channel but at least the latency can be measured
+and compensated for if necessary. Latency and jitter on the samples may still exist because the processor can not act fast enough but again it can be measured and 
+corrected for using the information in the data messages. 
+
+The subscribe command requires 4 arguments: input pin, output channel, sample interval, and phase offset. The input pin is the source the data should
+be read from and the output channel is the message channel the data will be sent to. The sample interval is the time between samples expressed in units
+of the timer resolution (currently 25 clock ticks or 400us) and the phase offset is an interval to wait for before starting the timer. By carefully configuring
+the subscription intervals and offsets multiplexed data sources (such as the 6 ADC pins on the AVR ATmega328p) can be sampled at known intervals with predictable
+overlap. In the case of an overlap in requests for a multiplexed data source the priority will be handled by the ordering the subscriptions were created
+in with the earliest subscription getting the highest priority. 
+													
+															
+Publications
+
+
+Data is published by the client via messages to channels 1 to 30. The content of the message is given directly to the configured pin to be used in what ever
+context makes sense in terms of that pin. For instance a pin outputting PWM would receive messages where the contents was the value of the output compare
+register which itself would define the duty cycle of the pulse. The client in this case is responsible for converting the desired duty cycle into the appropriate
+value and sending that value to the channel. 																										
+															
+															

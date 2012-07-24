@@ -59,7 +59,6 @@ The following features remain to be implemented:
 	* Timer1 configured for 16 bit PWM for both output ports it is connected to running at a precision
 	  of .5us as well as a command for mapping an input message channel to the timer compare registers. 
 	* Optional 8 bit CRC byte with each message.
-	  left-adjusted mode.
 	* Allow client to configure the session
 	 	* clock precision and minimum timer interval
 	 	* generation of processor overflow events

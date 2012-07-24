@@ -1,3 +1,5 @@
+#calculate jitter from a list of samples including timestamps in ms
+
 use strict;
 use warnings;
 
@@ -16,5 +18,5 @@ while(<>) {
 	$lastSample = $time; 
 	$lastDelay = $delay; 
 
-	printf "$time\t%.6f\n", $change * 1000;
+	printf "$channel\t$time\t$value\t%.6f\n", $change * 1000;
 }
