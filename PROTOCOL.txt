@@ -57,9 +57,10 @@ Session
 
 
 As described above a client must initiate and maintain a session with Firmdata by sending commands and receiving 
-session events. A session event is identified by a unique number and includes up to 6 bytes of returned data. Each
+session events. A session event is identified by a unique number and includes up to 6 bytes of accompying data. Each
 command sent includes up to 6 bytes of command arguments and has a corresponding session event that acts as a 
-command confirmation. The session event and the command numbers are identical though there are additional session
+command confirmation; these confirmation events include any data that is returned to the client from the command. 
+The session event and the command identifiers share a common name space though there are additional session
 events that will occur with out any commands being sent such as the clock and processor overflow events. 
 
 When a session is open Firmdata will send a stream of session events to channel 31 interleaved with data on channels
@@ -88,10 +89,10 @@ For instance, the sequence of messages for a full beacon would be something like
 |   31   |	  2   |	   -   | beacon event message - no second byte
 +--------+--------+--------+
 
-Once the client has received the beacon event it may send a session open command. The client must ignore all messages from Firmdata until it receives 
-the session open event. The session open event indicates the starting point for state synchronization between Firmdata and the client. Any messages received
-prior to the session open event is old buffered data; messages received after the session open event must be processed sequentially or the states are not 
-guaranteed to remain consistent between the client and Firmdata which will result in undefined behavior. 
+Once the client has received the beacon event it may send a session open command. Once the session open command has been sent the client must ignore 
+all messages from Firmdata until it receives the session open event. The session open event indicates the starting point for state synchronization between
+Firmdata and the client. Any messages received prior to the session open event is old buffered data; messages received after the session open event
+must be processed sequentially or the states are not guaranteed to remain consistent between the client and Firmdata which will result in undefined behavior. 
 
 Once the session is open the client must immediately begin sending a heart beat; Failure to send a timely heart beat will result in Firmdata forcefully
 ending the client session. At this point the client may begin to configure data input and output by issuing subscribe and publish commands.  A subscribe 
@@ -99,7 +100,7 @@ command includes the pin to receive data from, the channel to send the data on, 
 and a phase offset for that interval. A publish command includes the pin to output data to, the channel to receive the data on, and the mode of operation of 
 the output (PWM, GPIO, etc).
 
-After the session is configured via the publish and subscribe commands the client may send a run command. A running session can not be further confiured and 
+After the session is configured via the publish and subscribe commands the client may send a run command. A running session can not be further configured and 
 will immediately begin sending data to the client according to the configured subscriptions and send data to the IO pins according to the configured 
 publications. In addition to the data messages the client must also process a number of session events to maintain synchronization with Firmdata. 
 
@@ -107,7 +108,7 @@ publications. In addition to the data messages the client must also process a nu
 Session Events
 
 
-The session event messages are sent to the client as messages on channel 31 interleaved with the messages carying the subscribed data. Using the session 
+The session event messages are sent to the client as messages on channel 31 interleaved with the messages carrying the subscribed data. Using the session 
 events to update the internal state of the client is required for the client to reconstruct the absolute time of a received piece of data using the 
 time stamp included with the data message. A session event can be sent to the client either as a response to a command or because of some condition happening
 inside Firmdata. Some events are sent only because of internal changes or as command responses but some are sent as both. Only events acting as a 
@@ -151,7 +152,13 @@ Commands
 
 A command is sent to Firmdata as a message on channel 31. The first byte of the message is the command number and each command takes between 0 and 6
 bytes of data as an argument and returns between 0 and 6 bytes of data in the response. Each command includes a corresponding session event with the 
-same number that acts as a command confirmation. The following table lists the command names, arguments, and returned data; see the session event 
+same number that acts as a command confirmation. It's important to understand that there will not be an immediate response to a command because the
+command response may be buffered behind some other session event that is also waiting to be received. A client should issue only one command at a time
+by waiting for the response from each command before submitting the next one. While waiting for the response from a command the client must continue
+to process other session events. It is conceivable that multiple commands could be issued with out waiting for the response from the first one however
+this behavior is not defined. 
+
+The following table lists the command names, arguments, and returned data; see the session event 
 table to get the command numbers for the command name.
 
 Name			Arguments					Returns				Description

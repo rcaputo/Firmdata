@@ -128,7 +128,7 @@ BEGIN {
 	our %COMMAND_NUMBERS = (
 		NOP => 1, ECHO => 2, IDENTIFY => 3, TEST => 4, 
 		SESSION_START => 10, SESSION_END => 11, HEARTBEAT => 12,
-		SUBSCRIBE => 13,
+		SUBSCRIBE => 13, SERVO => 14
 	);
 	
 	while(my ($name, $number) = each(%COMMAND_NUMBERS)) {
@@ -168,7 +168,7 @@ sub update_status {
 	my ($self) = @_; 
 		
 	alarm(1); 
-		
+			
 	$self->sendCommand("HEARTBEAT") if defined $self->{session};
 	$self->print_status;
 }
@@ -237,7 +237,7 @@ sub sendCommand {
 	my $message = pack('C', $commandNumber);
 	my $retArgs; 
 	
-	if ($commandName ne 'HEARTBEAT') {
+	if ($commandName ne 'HEARTBEAT' && $commandName ne 'SERVO') {
 		if (defined($self->{sentCommand})) {
 			die "attempt to send command '$commandName' while waiting for the response from command ", $self->get_command_name($self->{sentCommand}); 
 		}
@@ -254,7 +254,7 @@ sub sendCommand {
 	
 	$self->driver->sendMessage(31, $message);
 	
-	if ($commandName eq 'HEARTBEAT') {
+	if ($commandName eq 'HEARTBEAT' || $commandName eq 'SERVO') {
 		return; 
 	}
 		
@@ -448,8 +448,13 @@ use warnings;
 $| = 1;
 print ''; 
 
-my $firmdataDriver = Device::Firmdata::Serial->new(shift(@ARGV)); 
-my $firmdata = Device::Firmdata->new($firmdataDriver, 'Device::Firmdata::Session'); 
+my $serialPortName = shift(@ARGV) or die "must specify a serial port name";
+my $sessionClassFile = shift(@ARGV) or die "must specify a session class file path";
+
+my $sessionClass = require $sessionClassFile;  
+
+my $firmdataDriver = Device::Firmdata::Serial->new($serialPortName); 
+my $firmdata = Device::Firmdata->new($firmdataDriver, $sessionClass); 
 
 $firmdata->run;
 
