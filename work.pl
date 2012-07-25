@@ -118,7 +118,6 @@ use Time::HiRes qw(gettimeofday);
 
 $SIG{ALRM} = sub { our($US); update_status($US) if defined $US; };
 
-use constant CLOCK_HZ => 2500; 
 use constant CLOCK_TICK_NS => 16; 
 
 BEGIN {
@@ -128,7 +127,7 @@ BEGIN {
 	our %COMMAND_NUMBERS = (
 		NOP => 1, ECHO => 2, IDENTIFY => 3, TEST => 4, 
 		SESSION_START => 10, SESSION_END => 11, HEARTBEAT => 12,
-		SUBSCRIBE => 13, SERVO => 14
+		SUBSCRIBE => 13,
 	);
 	
 	while(my ($name, $number) = each(%COMMAND_NUMBERS)) {
@@ -237,7 +236,7 @@ sub sendCommand {
 	my $message = pack('C', $commandNumber);
 	my $retArgs; 
 	
-	if ($commandName ne 'HEARTBEAT' && $commandName ne 'SERVO') {
+	if ($commandName ne 'HEARTBEAT') {
 		if (defined($self->{sentCommand})) {
 			die "attempt to send command '$commandName' while waiting for the response from command ", $self->get_command_name($self->{sentCommand}); 
 		}
@@ -254,7 +253,7 @@ sub sendCommand {
 	
 	$self->driver->sendMessage(31, $message);
 	
-	if ($commandName eq 'HEARTBEAT' || $commandName eq 'SERVO') {
+	if ($commandName eq 'HEARTBEAT') {
 		return; 
 	}
 		
