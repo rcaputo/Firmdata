@@ -19,6 +19,7 @@ struct timer {
 	bool taken;
 	bool active;
 	bool repeat;
+	bool dirty;
 	uint16_t offset;
 	uint16_t count;
 	uint16_t top;
@@ -33,5 +34,6 @@ void timer_start(uint8_t timerId);
 void timer_delete(uint8_t timerId);
 void timer_pause(uint8_t timerId);
 void timer_delete_all(void);
+void timer_run(void);
 
 #endif /* TIMER_H_ */

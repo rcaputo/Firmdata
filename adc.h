@@ -9,6 +9,7 @@
 #define ADC_H_
 
 void adc_init(void);
-bool adc_take_sample(uint8_t pin);
+bool adc_take_sample(uint8_t pin, uint8_t channel);
+void adc_check_sample(void);
 
 #endif /* ADC_H_ */

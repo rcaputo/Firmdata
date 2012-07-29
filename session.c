@@ -24,9 +24,6 @@
 bool sessionActive;
 volatile struct atomq *eventQueue;
 bool gotHeartBeat;
-volatile bool adcSampleRequestOut;
-volatile uint8_t adcCurrentPin;
-volatile uint8_t adcCurrentChannel;
 
 static void session_start_broadcast(void);
 static void session_handle_event_sessionEnd(volatile struct session_event *p);
@@ -128,21 +125,14 @@ static void session_handle_event_heartBeat(volatile struct session_event *p) {
 	gotHeartBeat = true;
 }
 
-void session_event_deliver_adcSampleReady(uint8_t pin, uint8_t timeStamp, uint8_t data) {
+void session_event_deliver_adcSampleReady(uint8_t channel, uint8_t timeStamp, uint8_t data) {
 	static volatile struct session_event event = { session_event_adcSampleReady, { } };
 
-	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		if (adcCurrentPin != pin) {
-			fault_fatal(FAULT_SESSION_ADC_SAMPLE_READY_MISMATCH);
-		}
 
-		adcSampleRequestOut = false;
-
-		event.data[0] = pin;
-		event.data[1] = timeStamp;
-		event.data[2] = data;
-		event.data[3] = adcCurrentChannel;
-	}
+	//event.data[0] = pin;
+	event.data[1] = timeStamp;
+	event.data[2] = data;
+	event.data[3] = channel;
 
 	session_event_deliver(&event);
 }
@@ -225,20 +215,7 @@ void session_subscription_timer_cb(volatile struct timer *p) {
 
 	subscription = p->handlerArg;
 
-	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		if (adcSampleRequestOut) {
-			return;
-		}
-
-		if (! adc_take_sample(subscription->pin)) {
-			return;
-		}
-
-		adcCurrentPin = subscription->pin;
-		adcCurrentChannel = subscription->channel;
-		adcSampleRequestOut = true;
-	}
-
+	adc_take_sample(subscription->pin, subscription->channel);
 }
 
 static void session_start_broadcast(void) {
@@ -261,7 +238,6 @@ void session_update(void) {
 void session_init(void) {
 	sessionActive = 0;
 	gotHeartBeat = false;
-	adcSampleRequestOut = false;
 
 	eventQueue = atomq_alloc(SESSION_EVENT_QUEUE_SIZE, sizeof(struct session_event));
 

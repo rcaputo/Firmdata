@@ -19,7 +19,7 @@ sub new {
 	$self->{fh} = $fh; 
 	$self->{accumulators} = { send => 0, recv => 0 }; 
 	
-	$self->serial->baudrate(57600);
+	$self->serial->baudrate(57600) or die "Could not set baud: $^E";
 	$self->serial->parity('none');
 	$self->serial->stopbits(1);
 	$self->serial->read_interval(0);
@@ -118,7 +118,14 @@ use Time::HiRes qw(gettimeofday);
 
 $SIG{ALRM} = sub { our($US); update_status($US) if defined $US; };
 
-use constant CLOCK_TICK_NS => 16; 
+use constant CLOCK_TICK_US => 64; 
+
+END {
+	our($US);
+	if (defined($US)) {
+		$US->send_command('SESSION_END');
+	}	
+}
 
 BEGIN {
 	my %numbers; 
@@ -127,7 +134,7 @@ BEGIN {
 	our %COMMAND_NUMBERS = (
 		NOP => 1, ECHO => 2, IDENTIFY => 3, TEST => 4, 
 		SESSION_START => 10, SESSION_END => 11, HEARTBEAT => 12,
-		SUBSCRIBE => 13,
+		SUBSCRIBE => 13, SERVO => 14
 	);
 	
 	while(my ($name, $number) = each(%COMMAND_NUMBERS)) {
@@ -167,9 +174,8 @@ sub update_status {
 	my ($self) = @_; 
 		
 	alarm(1); 
-			
-	$self->sendCommand("HEARTBEAT") if defined $self->{session};
-	$self->print_status;
+	
+	$self->{sendHeartBeat} = 1; 		
 }
 
 sub print_status {
@@ -182,13 +188,12 @@ sub print_status {
 		
 	if (defined($self->{wallTime}) && defined($self->{captureTime})) {
 		print STDERR sprintf("clock error:%.4f ", $self->{wallTime} - $self->{captureTime});
-		
 	}
 	
 	if (defined($lastHere)) {
 		my ($send, $recv) = $self->driver->get_accumulators; 
-		$sendSpeed = int($send / 1 / ($now - $lastHere)); 
-		$recvSpeed = int($recv / 1 / ($now - $lastHere)); 
+		$sendSpeed = sprintf("%0.4d", int($send / 1 / ($now - $lastHere))); 
+		$recvSpeed = sprintf("%0.4d", int($recv / 1 / ($now - $lastHere)))
 	}
 	
 	$lastHere = $now; 
@@ -198,7 +203,7 @@ sub print_status {
 	}
 	
 	print STDERR "uCPU:$utilization% " if defined $utilization; 
-	print STDERR "s:$sendSpeed r:$recvSpeed " if defined $sendSpeed; 
+	print STDERR "send:$sendSpeed recv:$recvSpeed " if defined $sendSpeed; 
 	print STDERR $self->session->update if defined $self->session; 
 	print STDERR "   \r";
 }
@@ -236,7 +241,7 @@ sub sendCommand {
 	my $message = pack('C', $commandNumber);
 	my $retArgs; 
 	
-	if ($commandName ne 'HEARTBEAT') {
+	if ($commandName ne 'HEARTBEAT' && $commandName ne 'SERVO') {
 		if (defined($self->{sentCommand})) {
 			die "attempt to send command '$commandName' while waiting for the response from command ", $self->get_command_name($self->{sentCommand}); 
 		}
@@ -253,7 +258,7 @@ sub sendCommand {
 	
 	$self->driver->sendMessage(31, $message);
 	
-	if ($commandName eq 'HEARTBEAT') {
+	if ($commandName eq 'HEARTBEAT' || $commandName eq 'SERVO') {
 		return; 
 	}
 		
@@ -289,9 +294,11 @@ sub handle_stdio {
 sub handle_data {
 	my ($self, $channel, $relativeTime, $content) = @_; 
 	my $time = $self->{clockCounter} * 256 + $relativeTime;
-	my $timeSeconds = $time * CLOCK_TICK_NS / 1000000;
+	my $timeSeconds = $time * CLOCK_TICK_US / 1000000;
 		
-	$self->session->data($channel, $timeSeconds, unpack('C', $content));
+	if (defined($self->{session})) {
+		$self->session->data($channel, $timeSeconds, unpack('C', $content));		
+	}
 }
 
 sub handle_system_message_commandResponse {
@@ -332,14 +339,21 @@ sub handle_system_message_beacon {
 sub handle_system_message_clockOverflow {
 	my ($self) = @_;
 	my $now = gettimeofday(); 
+	
+	$self->print_status;
 
 	$self->{clockCounter}++; 
-		
+
+	if ($self->{sendHeartBeat}) {
+		$self->sendCommand("HEARTBEAT") if defined $self->{session};
+		$self->{sendHeartBeat} = 0; 
+	}	
+
 	if (! defined($self->{firstClockOverflowTimestamp})) {
 		$self->{firstClockOverflowTimestamp} = $now; 
 	} else {
 		my $sessionDurationWall = $now - $self->{firstClockOverflowTimestamp};
-		my $sessionDurationCapture = $self->{clockCounter} * 256 * CLOCK_TICK_NS / 1000000; 
+		my $sessionDurationCapture = $self->{clockCounter} * 256 * CLOCK_TICK_US / 1000000; 
 		
 		$self->{wallTime} = $sessionDurationWall;
 		$self->{captureTime} = $sessionDurationCapture; 
@@ -438,6 +452,50 @@ sub data {
 sub clock_overflow {
 	my ($self) = @_;
 }
+
+package Device::Firmdata::IO::PWM; 
+
+use strict;
+use warnings; 
+
+package Device::Firmdata::Hardware; 
+
+use strict;
+use warnings; 
+
+sub new {
+	my ($class, @args) = @_;
+	my $self = bless({}, $class);
+	
+	$self->{args} = \@args;
+	$self->{conf} = { $self->defaults };
+	
+	$self->init; 
+}
+
+sub init {
+	my ($self) = @_; 
+}
+
+package Device::Firmdata::Hardware::HobbyServo; 
+
+use base qw(Device::Firmdata::Hardware);
+
+sub init {
+	
+}
+
+sub defaults {
+	my ($self) = @_;
+	
+	return (
+		$self->SUPER::defaults,
+		
+		deadBand => 10, #deadband time in usec
+		throw => [ [ 1000, -45 ], [ 2000, 45 ] ], 	
+	);
+}
+
 
 package main; 
 

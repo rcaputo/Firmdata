@@ -15,19 +15,26 @@
 #include "timer.h"
 #include "session.h"
 #include "processor.h"
+#include "adc.h"
 
-#if CLOCK_HZ == 2500
-#define COUNTER_COMPARE 25
+#if CLOCK_HZ == 1024
+#define COUNTER_COMPARE 16
+#elif CLOCK_HZ == 2048
+#define COUNTER_COMPARE 8
+#elif CLOCK_HZ == 4096
+#define COUNTER_COMPARE 4
+#elif CLOCK_HZ == 8192
+#define COUNTER_COMPARE 2
 #else
 #error Invalid clock frequency specified
 #endif
 
 void clock_pause(void) {
-	TCCR0B &= ~( 1 << CS02 | 1 << CS01 | 1 << CS00 );
+	TCCR2B &= ~( 1 << CS22 | 1 << CS21 | 1 << CS20 );
 }
 
 void clock_reset(void) {
-	TCNT0 = 0;
+	TCNT2 = 0;
 }
 
 void clock_stop(void) {
@@ -36,31 +43,48 @@ void clock_stop(void) {
 }
 
 void clock_run(void) {
-	//256 prescaler
-	TCCR0B |= 1 << CS02 | 0 << CS01 | 0 << CS00;
+	//1024 prescaler
+	TCCR2B |= 1 << CS22 | 1 << CS21 | 1 << CS20;
+}
+
+static inline void clock_did_overflow(void) {
+	session_event_deliver_clockOverflow();
 }
 
 uint8_t clock_get(void) {
-	return TCNT0;
+
+	//check for an unsent overflow event and send it if needed
+	//then clear the interrupt flag
+	if (TIFR2 & 1 << TOV2) {
+		TIFR2 &= ~(1 << TOV2);
+		clock_did_overflow();
+	}
+
+	return TCNT2;
 }
 
 void clock_init(void) {
-	OCR0A = COUNTER_COMPARE;
+	OCR2A = COUNTER_COMPARE;
 
-	TIMSK0 |= 1 << OCIE0A | 1 << TOIE0;
+	TIMSK2 |= 1 << OCIE2A | 1 << TOIE2;
 }
 
-ISR(TIMER0_COMPA_vect) {
+ISR(TIMER2_COMPA_vect) {
 	processor_busy();
 
-	OCR0A += COUNTER_COMPARE;
+	OCR2A += COUNTER_COMPARE;
 
 	timer_tick();
+
+	sei();
+
+	adc_check_sample();
+	timer_run();
 }
 
-ISR(TIMER0_OVF_vect) {
+ISR(TIMER2_OVF_vect) {
 	processor_busy();
 
-	session_event_deliver_clockOverflow();
+	clock_did_overflow();
 }
 
