@@ -7,7 +7,7 @@ provides functionality similar to the Firmata software for the Arduino platform 
 major differences:
 
 	* Data sent to a Firmdata client includes enough information to calculate the absolute time
-	  the data was collected with a precision down to 16us regardless of communication line latency. 
+	  the data was collected with a precision down to 64us regardless of communication line latency. 
 	  
 	* All IO with Firmdata is done using a simple message format providing 30 user configurable
 	  data channels for input and output. The message header is a single byte and each 
@@ -33,7 +33,7 @@ The following features are operational:
 	
 	* Multiple data subscriptions at arbitrary intervals on arbitrary ADC pins.
 	
-	* Clock events and time data with samples giving a precision down to 16us regardless
+	* Clock events and time data with samples giving a precision down to 64us regardless
 	  of latency on the serial line.
 	  
 	* Reference client written in Perl that tracks serial speed and microcontroller processor usage and
@@ -45,14 +45,8 @@ The following problems are known to exist:
 	
 	* The reference client isn't exactly elegant right now
 
-	* ADC sample jitter can be up to 10ms at times but is usually under 16us on first data subscription.
-	  The later data subscriptions are much worse. 
-	  
-	* It looks like timers are being skipped at times. This is a huge contribution to but does not seem to be the 
-	  only cause of the jitter issues. 
-	  
-	* Clock overflow events might be getting dropped or might not be coming in order at times because of 
-	  interrupt overlap with the timers. 
+	* ADC sample jitter can be very bad at times on the non-highest priority subscription but but is usually 
+	  under 64us on first data subscription.
 	  
 Even with the known issues Firmdata is able to provide the data to calculate the speed of a shaft spinning at 
 1300 RPM when it has 3 magnets attached to it and field strength readings coming from a linear fluxgate 

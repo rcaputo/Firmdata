@@ -196,7 +196,7 @@ Subscribed data is delivered to the client as messages on channels 1 to 30. Data
 followed by the data for the message. The time stamp is the clock counter value when the sample for the data was started; to calculate
 the absolute time the sample was taken since the start of the session multiply the clock overflow accumulator by 256 and sum it with the
 time stamp. This provides the absolute time for the sample in units of the clock precision. To calculate the absolute time in seconds multiply the
-clock resolution in nanoseconds (currently 16 us) by the calculated time stamp and divide by 1,000,000. 
+clock resolution in nanoseconds (currently 64 us) by the calculated time stamp and divide by 1,000,000. 
 
 Using the computed time stamp it is possible to know the exact moment (within the precision of the clock) the data was captured at regardless of the latency
 and jitter of the communications channel; the message will be received with what ever latency is present on the channel but at least the latency can be measured
