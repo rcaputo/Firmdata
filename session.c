@@ -223,7 +223,7 @@ static void session_start_broadcast(void) {
 
 	session_send_broadcast();
 
-	timer = timer_create(CLOCK_HZ, 0, true, session_broadcast_timer_cb, NULL);
+	timer = timer_create(SESSION_BROADCAST_INTERVAL, 0, true, session_broadcast_timer_cb, NULL);
 	timer_start(timer);
 }
 

@@ -16,6 +16,7 @@
 #include "message.h"
 #include "config.h"
 #include "session.h"
+#include "pwm.h"
 
 #define COMMAND_RESPONSE_MAX_LEN 6
 
@@ -127,6 +128,30 @@ static bool command_handle_subscribe(uint8_t command, volatile struct atomq *p) 
 	return true;
 }
 
+static bool command_handle_servo(uint8_t command, volatile struct atomq *p) {
+	static unsigned char buf[3];
+	static uint16_t newValue;
+	static uint8_t servoNum;
+	static int i;
+
+	if (atomq_slots_consumed(p) < 3) {
+		return false;
+	}
+
+	for(i = 0; i < 3; i++) {
+		if (! atomq_dequeue(p, false, &buf[i])) {
+			fault_fatal(FAULT_COMMAND_SERVO_WOULD_BLOCK);
+		}
+	}
+
+	newValue = buf[0] | buf[1] << 8;
+	servoNum = buf[2];
+
+	pwm_set(servoNum, newValue);
+
+	return true;
+}
+
 static bool command_handle(uint8_t command, volatile struct atomq *p) {
 	switch(command) {
 		case COMMAND_NAME_NOP: return command_handle_nop(command, p);
@@ -137,6 +162,7 @@ static bool command_handle(uint8_t command, volatile struct atomq *p) {
 		case COMMAND_NAME_SESSION_END: return command_handle_session_end(command, p);
 		case COMMAND_NAME_HEARTBEAT: return command_handle_heartBeat(command, p);
 		case COMMAND_NAME_SUBSCRIBE: return command_handle_subscribe(command, p);
+		case COMMAND_NAME_SERVO: return command_handle_servo(command, p);
 		default: fault_fatal(FAULT_MESSAGE_COMMAND_NO_MATCH); break;
 	}
 

@@ -11,11 +11,11 @@
 
 #include "pwm.h"
 
-void pwm_set(uint8_t servoNum, uint16_t compareValue) {
+void pwm_set(uint8_t pwmOut, uint16_t compareValue) {
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		if (servoNum == 1) {
+		if (pwmOut == 1) {
 			OCR1A = compareValue;
-		} else if (servoNum == 2) {
+		} else if (pwmOut == 2) {
 			OCR1B = compareValue;
 		}
 	}
