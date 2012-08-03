@@ -31,7 +31,7 @@ sub sessionClose {
 }
 
 #invoked when the session has received data that has been previously subscribed too
-#args: channel number, absolute time data was capture as floating point seconds since session was created, captured value
+#args: channel number, absolute time data was captured as floating point seconds since session was created, captured value
 sub inputData {
 	my ($self, $channel, $when, $data) = @_; 
 	

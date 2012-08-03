@@ -17,13 +17,13 @@
 #include "processor.h"
 #include "adc.h"
 
-#if CLOCK_HZ == 1024
+#if CLOCK_TIMER_HZ == 1024
 #define COUNTER_COMPARE 16
-#elif CLOCK_HZ == 2048
+#elif CLOCK_TIMER_HZ == 2048
 #define COUNTER_COMPARE 8
-#elif CLOCK_HZ == 4096
+#elif CLOCK_TIMER_HZ == 4096
 #define COUNTER_COMPARE 4
-#elif CLOCK_HZ == 8192
+#elif CLOCK_TIMER_HZ == 8192
 #define COUNTER_COMPARE 2
 #else
 #error Invalid clock frequency specified

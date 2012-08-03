@@ -6,6 +6,9 @@ use Time::HiRes qw(gettimeofday);
 use Device::Firmdata::Util::Accumulator; 
 use Device::Firmdata::Session; 
 
+#TODO: refactor the command code into it's own class instead of 
+#hammering the code into the hashref that backs the instance
+
 has config => ( is => 'ro', isa => 'HashRef', required => 1 );
 has io => ( is => 'ro', does => 'Device::Firmdata::Role::IO', required => 1, builder => 'build_io', lazy => 1 ); 
 has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session' );
@@ -14,6 +17,7 @@ has processorCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Ac
 has lastHeartBeat => ( is => 'rw', isa => 'Num', required => 1, default => 0 );
 
 use constant CLOCK_TICK_US => 64; 
+use constant TIMER_HZ => 2048; 
 
 BEGIN {
 	our %COMMAND_NAMES; 

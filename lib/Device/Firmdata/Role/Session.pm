@@ -19,7 +19,7 @@ sub subscribe {
 	$self->host->sendCommand('SUBSCRIBE', pack('CCS<S<', $pin, $channel, $interval, $offset));
 }
 
-#TODO: this needs to be implemented to allow the client to send output on the uC ports
+#TODO: update to support sending data to channels and having the channels map to output pins
 sub publish {
 	my ($self, $pin, $channel) = @_; 
 	
