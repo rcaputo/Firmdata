@@ -7,7 +7,10 @@ with 'Device::Firmdata::Role::Session';
 sub sessionOpen {
 	my ($self) = @_;
 	
-	$self->subscribe(1, 1, 2, 0);
+	$self->outputData(1, 1500);
+	$self->outputData(2, 1500);
+	
+	$self->subscribe(1, 1, 2000, 0);
 }
 
 sub sessionClose {
@@ -15,7 +18,7 @@ sub sessionClose {
 	
 }
 
-sub data {
+sub inputData {
 	my ($self, $channel, $when, $data) = @_; 
 	
 	warn "Got data on $channel at $when";

@@ -6,7 +6,7 @@ use Time::HiRes qw(gettimeofday);
 use Device::Firmdata::Util::Accumulator; 
 use Device::Firmdata::Session; 
 
-has commandLineArgs => ( is => 'ro', isa => 'HashRef', required => 1 );
+has config => ( is => 'ro', isa => 'HashRef', required => 1 );
 has io => ( is => 'ro', does => 'Device::Firmdata::Role::IO', required => 1, builder => 'build_io', lazy => 1 ); 
 has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session' );
 has clockCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
@@ -34,7 +34,7 @@ BEGIN {
 
 sub build_io {
 	my ($self) = @_;
-	my $portName = $self->commandLineArgs->{portName};
+	my $portName = $self->config->{portName};
 	my $ioRole; 
 	
 	if ($^O eq 'MSWin32') {
@@ -125,7 +125,7 @@ sub getCommandName {
 	our(%COMMAND_NAMES); 
 
 	unless(exists($COMMAND_NAMES{$number})) {
-		die "Could not look up command name for '$number'"
+		die "Could not look up command name for '$number'"; 
 	}
 	
 	return $COMMAND_NAMES{$number}; 
@@ -225,7 +225,7 @@ sub handleData {
 	my $clockTime = $clockValue * CLOCK_TICK_US / 1000000;
 		
 	if (defined($self->session)) {
-		$self->session->data($channel, $baseTime + $clockTime, unpack('C', $content));
+		$self->session->inputData($channel, $baseTime + $clockTime, unpack('C', $content));
 	}
 }
 

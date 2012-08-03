@@ -6,6 +6,6 @@ use Device::Firmdata;
 $| = 1;
 print '';
 
-my $firmdata = Device::Firmdata->new(commandLineArgs => { @ARGV } );
+my $firmdata = Device::Firmdata->new(config => { @ARGV } );
 
 $firmdata->run;

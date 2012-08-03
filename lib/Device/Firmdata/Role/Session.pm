@@ -6,7 +6,7 @@ has host => ( is => 'ro', isa => 'Device::Firmdata', required => 1, weak_ref => 
 
 requires 'sessionOpen';
 requires 'sessionClose';
-requires 'data';
+requires 'inputData';
 
 sub subscribe {
 	my ($self, $pin, $channel, $interval, $offset) = @_; 
@@ -17,6 +17,29 @@ sub subscribe {
 	die "must specify a pin" unless defined $pin; 	
 	
 	$self->host->sendCommand('SUBSCRIBE', pack('CCS<S<', $pin, $channel, $interval, $offset));
+}
+
+#TODO: this needs to be implemented to allow the client to send output on the uC ports
+sub publish {
+	my ($self, $pin, $channel) = @_; 
+	
+	if (($pin != 1 && $pin != 2) || ($channel != 1 && $channel != 2)) {
+		die "only pin and channel 1 and 2 is supported for publish because this is a hack";
+	}
+	
+	if ($pin != $channel) {
+		die "pin and channel must match on publish because this is a hack";
+	}
+}
+
+sub outputData {
+	my ($self, $channel, $value) = @_; 
+	
+	if ($channel != 1 && $channel != 2) {
+		return; 
+	}
+		
+	$self->host->sendCommand('SERVO', pack('S<C', $value, $channel));
 }
 
 1;
