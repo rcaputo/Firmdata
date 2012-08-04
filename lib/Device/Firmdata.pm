@@ -11,7 +11,7 @@ use Device::Firmdata::Session;
 
 has config => ( is => 'ro', isa => 'HashRef', required => 1 );
 has io => ( is => 'ro', does => 'Device::Firmdata::Role::IO', required => 1, builder => 'build_io', lazy => 1 ); 
-has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session' );
+has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session', required => 1, lazy => 1, builder => 'build_session', predicate => 'has_session' );
 has clockCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
 has processorCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
 has lastHeartBeat => ( is => 'rw', isa => 'Num', required => 1, default => 0 );
@@ -56,6 +56,19 @@ sub build_io {
 	); 
 	
 	return $metaclass->new_object(portName => $portName);
+}
+
+sub build_session {
+	my ($self) = @_;
+	my $sessionFile = $self->config->{sessionFile};
+	
+	if (! defined($sessionFile)) {
+		die "must specify sessionFile in configuration";
+	}
+	
+	my $sessionClass = require $sessionFile;
+	
+	return $sessionClass->new(host => $self);	
 }
 
 sub run {
@@ -165,14 +178,12 @@ sub handleSystemMessage {
 sub handleSystemMessage_beacon {
 	my ($self) = @_; 
 
-	if (defined($self->session)) {
+	if ($self->has_session) {
 		die "Received beacon message while the session was active"; 
 	}
 	
 	$self->sendCommand('SESSION_START'); 
 	print STDERR "Session started at ", scalar(localtime()), "\n";
-
-	$self->session(Device::Firmdata::Session->new(host => $self));	
 	
 	$self->session->sessionOpen;
 }
