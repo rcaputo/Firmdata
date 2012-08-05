@@ -15,6 +15,7 @@ has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session' );
 has clockCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
 has processorCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
 has lastHeartBeat => ( is => 'rw', isa => 'Num', required => 1, default => 0 );
+has sessionStartWait => ( is => 'rw', isa => 'Bool', required => 1, default => 0 ); 
 
 #The clock counter is incrimented on the microcontroller at this interval and this is the minimum amount of time that can
 #be represented
@@ -221,7 +222,11 @@ sub handleSystemMessage_beacon {
 		die "Received beacon message while the session was active"; 
 	}
 	
-	$self->sendCommand('SESSION_START'); 
+	if (! $self->sessionStartWait) {
+		$self->sessionStartWait(1);
+		$self->sendCommand('SESSION_START'); 		
+	}
+	
 	print STDERR "Session started at ", scalar(localtime()), "\n";
 	
 	$self->session($self->build_session);
