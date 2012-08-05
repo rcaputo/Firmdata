@@ -224,13 +224,13 @@ sub handleSystemMessage_beacon {
 	
 	if (! $self->sessionStartWait) {
 		$self->sessionStartWait(1);
-		$self->sendCommand('SESSION_START'); 		
+		$self->sendCommand('SESSION_START'); 	
+		
+		print STDERR "Session started at ", scalar(localtime()), "\n";
+	
+		$self->session($self->build_session);
+		$self->session->sessionOpen;		
 	}
-	
-	print STDERR "Session started at ", scalar(localtime()), "\n";
-	
-	$self->session($self->build_session);
-	$self->session->sessionOpen;
 }
 
 #see the comments on sendCommand() for info on what is going on here
