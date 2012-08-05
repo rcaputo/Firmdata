@@ -4,6 +4,8 @@ use Moose::Role;
 
 with 'Device::Firmdata::Role::IO';
 
+#this is a research hack and requires some other external means to configure the serial port properly 
+
 has fh => ( is => 'ro', isa => 'GlobRef', required => 1, lazy => 1, builder => 'build_fh' );
 
 sub build_fh {

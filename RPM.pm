@@ -122,7 +122,7 @@ sub outside_pole {
 sub got_knob {
 	my ($self, $when, $value) = @_; 
 	
-	warn "Knob at $when";
+#	warn "Knob at $when";
 }
 
 return "RPMController";
