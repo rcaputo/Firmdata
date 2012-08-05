@@ -18,7 +18,7 @@ use constant HEADER_LENGTH => 1;
 
 sub getHeader {
 	my ($self) = @_;
-	my $headerByte = $self->read(1); 	
+	my $headerByte = $self->read(HEADER_LENGTH); 	
 	my $headerValue = unpack('C', $headerByte); 
 	my $channel = ($headerValue & HEADER_CHANNEL_MASK) >> HEADER_CHANNEL_SHIFT; 
 	my $length = $headerValue & HEADER_SIZE_MASK; 
@@ -29,8 +29,10 @@ sub getHeader {
 sub getMessage {
 	my ($self) = @_;
 	my ($channel, $length) = $self->getHeader; 
-	my $content = $self->read($length); 
+	my $content = $self->read($length) if $length > 0;
 	my $bytesRead = $length + HEADER_LENGTH; 
+	
+	$content = '' unless defined $content; 
 	
 	$self->bytesRead->add($bytesRead); 
 	

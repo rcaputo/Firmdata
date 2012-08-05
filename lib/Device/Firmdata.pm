@@ -11,7 +11,7 @@ use Device::Firmdata::Session;
 
 has config => ( is => 'ro', isa => 'HashRef', required => 1 );
 has io => ( is => 'ro', does => 'Device::Firmdata::Role::IO', required => 1, builder => 'build_io', lazy => 1 ); 
-has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session', required => 1, lazy => 1, builder => 'build_session', predicate => 'has_session' );
+has session => ( is => 'rw', does => 'Device::Firmdata::Role::Session' );
 has clockCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
 has processorCounterOverflow => ( is => 'ro', isa => 'Device::Firmdata::Util::Accumulator', required => 1, default => sub { Device::Firmdata::Util::Accumulator->new } );
 has lastHeartBeat => ( is => 'rw', isa => 'Num', required => 1, default => 0 );
@@ -44,7 +44,7 @@ sub build_io {
 	if ($^O eq 'MSWin32') {
 		$ioRole = 'Device::Firmdata::Role::IO::Win32Serial';
 	} else {
-		die "$^O is not currently a supported operating system";
+		$ioRole = 'Device::Firmdata::Role::IO::DeviceSerial';
 	}
 	
 	unless(defined($portName)) {
@@ -61,13 +61,14 @@ sub build_io {
 sub build_session {
 	my ($self) = @_;
 	my $sessionFile = $self->config->{sessionFile};
+	my $sessionClass;
 	
-	if (! defined($sessionFile)) {
-		die "must specify sessionFile in configuration";
+	if (defined($sessionFile)) {
+		$sessionClass = require $sessionFile;
+	} else {
+		$sessionClass = 'Device::Firmdata::Session';
 	}
-	
-	my $sessionClass = require $sessionFile;
-	
+		
 	return $sessionClass->new(host => $self);	
 }
 
@@ -178,13 +179,14 @@ sub handleSystemMessage {
 sub handleSystemMessage_beacon {
 	my ($self) = @_; 
 
-	if ($self->has_session) {
+	if (defined($self->session)) {
 		die "Received beacon message while the session was active"; 
 	}
 	
 	$self->sendCommand('SESSION_START'); 
 	print STDERR "Session started at ", scalar(localtime()), "\n";
 	
+	$self->session($self->build_session);
 	$self->session->sessionOpen;
 }
 

@@ -81,21 +81,23 @@ sub got_magnetometer {
 			$self->outside_pole($when);
 			$self->currentPole(undef);				
 		}
-	} else {
-		if ($value > 135) {
-			$self->currentPole('s');
-			$self->inside_pole($when);
-						
-		} elsif ($value < 122) {
-			$self->currentPole('n');
-			$self->inside_pole($when);
-		}		
+	} 
+	
+	#a single reading may both indicate that a pole is no longer present
+	#and that a new one has been detected so this should not be in an else
+	#block with the logic above that clears out the current pole 
+	if ($value > 135) {
+		$self->currentPole('s');
+		$self->inside_pole($when);					
+	} elsif ($value < 122) {
+		$self->currentPole('n');
+		$self->inside_pole($when);	
 	}
 }
 
 sub inside_pole {
 	my ($self, $when) = @_;
-	
+	#this is where north poles could be counted
 }
 
 #counting a turn when a pole is left instead of when it is entered
@@ -119,6 +121,8 @@ sub outside_pole {
 
 sub got_knob {
 	my ($self, $when, $value) = @_; 
+	
+	warn "Knob at $when";
 }
 
 return "RPMController";

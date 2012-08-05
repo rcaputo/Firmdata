@@ -79,4 +79,35 @@ The following features remain to be implemented:
 	  would be very good. 
 	  
 	* Get faster, better, stronger IO channels running such as Ethernet.  
+	
+	
+INSTALL
+
+Uploading to Arduino Uno on MacOSX
+  * avrdude -F -V -c arduino -p ATMEGA328P -P /dev/cu.usbmodem641 -b 115200 -U flash:w:Firmdata-atmega328p.hex
+  
+Uploading to Arduino Duemilanove on Windows
+  *  avrdude -pm328p -cstk500v1 -Pcom3 -b57600 -Uflash:w:Firmdata-atmega328p.hex:a
+  
+COMPILE
+
+The Firmware is built using the avr-gcc/avr-libc integration for Eclipse. To compile the software outside of Eclipse follow this guide:
+
+Install the following required GNU tools as detailed at http://www.nongnu.org/avr-libc/user-manual/install_tools.html
+  
+    * GNU Binutils
+    * GCC
+    * AVR LibC
+    * AVRDUDE
+    
+There should be a Makefile but there isn't right now so once all the tools are installed do something like this:
+
+avr-gcc -DF_CPU=16000000UL -mmcu=atmega328p -Wall -g2 -gstabs -Os \
+-fpack-struct -fshort-enums -std=gnu99 -funsigned-char -funsigned-bitfields \
+-Wl,-Map,Firmdata-atmega328p.map -o "Firmdata-atmega328p.elf" *.c 
+
+avr-objcopy -j .text -j .data -O ihex Firmdata-atmega328p.elf Firmdata-atmega328p.hex
+
+Then upload the Firmdata-atmega328p.elf file to the Arduino using the INSTALL instructions above. 
+
 	  	  
