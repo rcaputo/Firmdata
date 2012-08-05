@@ -25,43 +25,44 @@ sub build_driver {
 	my ($self) = @_; 
 
 	my $driver = Device::SerialPort->new($self->portName());
-	#$driver->debug(1);
+	$driver->debug(1);
 
 	#$driver->datatype("raw");
-	$driver->handshake('none');
 	$driver->baudrate(57600) or die "Could not set baud: $^E";
 	$driver->databits(8);
 	$driver->parity('none') or die "Could not set parity: $^E";
 	$driver->stopbits(1) or die "Could not set stopbits: $^E";
 
-	#$driver->read_interval(0);
-	$driver->read_const_time(10000);  # block at least 500ms
-	#$driver->read_char_time(10);     # block 5us more for each character requested
+	$driver->stty_echo(0);
 
-	#$driver->write_settings();
+	$driver->read_const_time(10000);
+	$driver->read_char_time(0);
 
+	$driver->write_settings();
+	
 	return $driver;
 }
 
 sub read {
 	my ($self, $bytes) = @_; 
-
-	my ($bytesRead, $buf) = $self->driver->read($bytes);
-
-	if (0) {
-		use bytes;
-		my $ascii = $buf;
-		$ascii =~ s/([^ -~])/sprintf '\x{%02x}', ord($1)/eg;
-		warn "<<< $bytes ($buf) ($ascii)\n";
+	my $buf;
+		
+	while(1) {
+		my ($bytesRead);
+				
+		($bytesRead, $buf) = $self->driver->read($bytes);
+		
+		next if $bytesRead == 0; 
+	
+		if ($bytesRead != $bytes) {
+			die "Tried to read $bytes bytes but only got $bytesRead";
+		}
+		
+		last; 
 	}
-
-	if ($bytesRead < 0) {
-		die "Could not read: $!";
-	} elsif ($bytesRead != $bytes) {
-		die "read of $bytes requested but only read $bytesRead";
-	}
-
+	
 	return $buf; 
+	
 }
 
 sub write {

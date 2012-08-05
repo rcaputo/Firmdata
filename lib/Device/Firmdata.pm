@@ -44,7 +44,7 @@ sub build_io {
 	if ($^O eq 'MSWin32') {
 		$ioRole = 'Device::Firmdata::Role::IO::Win32Serial';
 	} else {
-		$ioRole = 'Device::Firmdata::Role::IO::DeviceSerial';
+		$ioRole = 'Device::Firmdata::Role::IO::Serial';
 	}
 	
 	unless(defined($portName)) {
